@@ -9,17 +9,17 @@ export const api = axios.create({
 // Auth API
 export const authApi = {
   getAuthUrl: async (domain: string) => {
-    const response = await api.get('/auth/bitrix24', { params: { domain } });
+    const response = await api.get('/api/auth/bitrix24', { params: { domain } });
     return response.data;
   },
 
   exchangeCode: async (code: string, domain: string) => {
-    const response = await api.post('/auth/callback', { code, domain });
+    const response = await api.post('/api/auth/callback', { code, domain });
     return response.data;
   },
 
   getToken: async (sessionId: string) => {
-    const response = await api.get(`/auth/token/${sessionId}`);
+    const response = await api.get(`/api/auth/token/${sessionId}`);
     return response.data;
   }
 };
