@@ -1,20 +1,12 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/backend"
+      "source": "/api/:path*",
+      "destination": "/api/index"
     },
     {
-      "source": "/auth/(.*)",
-      "destination": "/api/backend"
+      "source": "/auth/:path*",
+      "destination": "/api/index"
     }
   ]
 }
-
-
