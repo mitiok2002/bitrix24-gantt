@@ -12,8 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  const path = (req.query.all as string[])?.join('/') || '';
-  console.log('Incoming path:', path, 'Method:', req.method);
+  const allParam = req.query.all;
+  const pathSegments = Array.isArray(allParam)
+    ? allParam
+    : typeof allParam === 'string' && allParam.length > 0
+      ? allParam.split('/')
+      : [];
+  const path = pathSegments.join('/');
+  console.log('Incoming path:', path, 'Method:', req.method, 'Query:', req.query);
 
   // GET /api/auth/bitrix24
   if (path === 'auth/bitrix24' && req.method === 'GET') {
