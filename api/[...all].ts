@@ -13,9 +13,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const path = (req.query.all as string[])?.join('/') || '';
+  console.log('Incoming path:', path, 'Method:', req.method);
 
   // GET /api/auth/bitrix24
-  if (path === 'auth/bitrix24' && req.method === 'GET') {
+  if (path === 'api/auth/bitrix24' && req.method === 'GET') {
     const { domain } = req.query;
     if (!domain) return res.status(400).json({ error: 'Domain is required' });
     
@@ -27,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // POST /api/auth/callback
-  if (path === 'auth/callback' && req.method === 'POST') {
+  if (path === 'api/auth/callback' && req.method === 'POST') {
     const { code, domain } = req.body;
     if (!code || !domain) return res.status(400).json({ error: 'Code and domain are required' });
 
@@ -63,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader.replace('Bearer ', '');
 
   // GET /api/api/tasks
-  if (path === 'api/tasks' && req.method === 'GET') {
+  if (path === 'api/api/tasks' && req.method === 'GET') {
     try {
       const { start = 0, limit = 50 } = req.query;
       const response = await axios.post(
@@ -84,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // GET /api/api/departments
-  if (path === 'api/departments' && req.method === 'GET') {
+  if (path === 'api/api/departments' && req.method === 'GET') {
     try {
       const response = await axios.get(`https://${domain}/rest/department.get.json?auth=${token}`);
       return res.json(response.data);
@@ -95,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // GET /api/api/users
-  if (path === 'api/users' && req.method === 'GET') {
+  if (path === 'api/api/users' && req.method === 'GET') {
     try {
       const { start = 0 } = req.query;
       const response = await axios.get(`https://${domain}/rest/user.get.json?auth=${token}&start=${start}`);
