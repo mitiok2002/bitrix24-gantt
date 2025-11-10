@@ -61,7 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         redirect_uri: process.env.BITRIX24_REDIRECT_URI ?? "",
       });
 
-      const response = await axios.post(tokenUrl, params.toString(), {
+      const oauthUrl = "https://oauth.bitrix.info/oauth/token/";
+
+      const response = await axios.post(oauthUrl, params.toString(), {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
