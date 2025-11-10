@@ -42,12 +42,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       const tokenUrl = `https://${domain}/oauth/token/`;
-      const response = await axios.post(tokenUrl, {
-        grant_type: 'authorization_code',
-        client_id: process.env.BITRIX24_CLIENT_ID,
-        client_secret: process.env.BITRIX24_CLIENT_SECRET,
-        code,
-        redirect_uri: process.env.BITRIX24_REDIRECT_URI
+      const response = await axios.get(tokenUrl, {
+        params: {
+          grant_type: 'authorization_code',
+          client_id: process.env.BITRIX24_CLIENT_ID,
+          client_secret: process.env.BITRIX24_CLIENT_SECRET,
+          code,
+          redirect_uri: process.env.BITRIX24_REDIRECT_URI
+        }
       });
 
       console.log('Token exchange raw response', response.data);
