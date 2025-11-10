@@ -53,18 +53,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       const tokenUrl = `https://${domain}/oauth/token/`;
-      const response = await axios.get(tokenUrl, {
-        params: {
-          grant_type: "authorization_code",
-          client_id: process.env.BITRIX24_CLIENT_ID,
-          client_secret: process.env.BITRIX24_CLIENT_SECRET,
-          code,
-          redirect_uri: process.env.BITRIX24_REDIRECT_URI,
+      const params = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: process.env.BITRIX24_CLIENT_ID ?? "",
+        client_secret: process.env.BITRIX24_CLIENT_SECRET ?? "",
+        code,
+        redirect_uri: process.env.BITRIX24_REDIRECT_URI ?? "",
+      });
+
+      const response = await axios.post(tokenUrl, params.toString(), {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
         },
       });
 
       console.log("Token exchange raw response", response.data);
       const { access_token, refresh_token } = response.data;
+      if (!access_token) {
+        console.error("Access token missing in response", response.data);
+        return res.status(500).json({
+          error: "Authentication failed",
+          details: response.data,
+        });
+      }
       const sessionId = `session_${Date.now()}_${Math.random()
         .toString(36)
         .substring(7)}`;
