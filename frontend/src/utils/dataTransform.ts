@@ -27,17 +27,36 @@ export const transformBitrixDepartments = (bitrixDepts: any[]): Department[] => 
 };
 
 // Трансформация задач Bitrix24 в формат Gantt
+const pickField = (task: any, keys: string[]) => {
+  for (const key of keys) {
+    const value = task[key];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+  return undefined;
+};
+
 export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
   return bitrixTasks
     .filter(task => {
-      // Фильтруем задачи, у которых есть хотя бы одна дата
-      const hasStartDate = task.START_DATE_PLAN || task.CREATED_DATE;
-      const hasEndDate = task.END_DATE_PLAN || task.DEADLINE || task.CLOSED_DATE;
+      const hasStartDate =
+        pickField(task, ['START_DATE_PLAN', 'startDatePlan']) ||
+        pickField(task, ['CREATED_DATE', 'createdDate']);
+      const hasEndDate =
+        pickField(task, ['END_DATE_PLAN', 'endDatePlan']) ||
+        pickField(task, ['DEADLINE', 'deadline']) ||
+        pickField(task, ['CLOSED_DATE', 'closedDate']);
       return hasStartDate && hasEndDate;
     })
     .map(task => {
-      const startDate = task.START_DATE_PLAN || task.CREATED_DATE;
-      const endDate = task.END_DATE_PLAN || task.DEADLINE || task.CLOSED_DATE;
+      const startDate =
+        pickField(task, ['START_DATE_PLAN', 'startDatePlan']) ||
+        pickField(task, ['CREATED_DATE', 'createdDate']);
+      const endDate =
+        pickField(task, ['END_DATE_PLAN', 'endDatePlan']) ||
+        pickField(task, ['DEADLINE', 'deadline']) ||
+        pickField(task, ['CLOSED_DATE', 'closedDate']);
       
       const start = dayjs(startDate).toDate();
       let end = dayjs(endDate).toDate();
@@ -49,16 +68,17 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
 
       // Определяем прогресс на основе статуса
       let progress = 0;
-      if (task.STATUS === '5') progress = 100; // Завершена
-      else if (task.STATUS === '4') progress = 75; // Ждет контроля
-      else if (task.STATUS === '3') progress = 50; // В работе
-      else if (task.STATUS === '2') progress = 0; // Новая
+      const status = pickField(task, ['STATUS', 'status']);
+      if (status === '5') progress = 100; // Завершена
+      else if (status === '4') progress = 75; // Ждет контроля
+      else if (status === '3') progress = 50; // В работе
+      else if (status === '2') progress = 0; // Новая
 
       // Цвет в зависимости от статуса
       let backgroundColor = '#4caf50'; // Зеленый по умолчанию
-      if (task.STATUS === '5') backgroundColor = '#2196f3'; // Синий - завершена
-      else if (task.STATUS === '7') backgroundColor = '#f44336'; // Красный - отложена
-      else if (task.STATUS === '3') backgroundColor = '#ff9800'; // Оранжевый - в работе
+      if (status === '5') backgroundColor = '#2196f3'; // Синий - завершена
+      else if (status === '7') backgroundColor = '#f44336'; // Красный - отложена
+      else if (status === '3') backgroundColor = '#ff9800'; // Оранжевый - в работе
 
       return {
         id: String(task.ID),
@@ -73,7 +93,9 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
           progressColor: '#fff',
           progressSelectedColor: '#fff'
         },
-        project: String(task.RESPONSIBLE_ID) // Привязываем к ответственному
+        project: String(
+          pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? ''
+        ) // Привязываем к ответственному
       };
     });
 };
