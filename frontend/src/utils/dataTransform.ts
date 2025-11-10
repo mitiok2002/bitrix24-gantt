@@ -4,11 +4,13 @@ import dayjs from 'dayjs';
 // Трансформация пользователей Bitrix24
 export const transformBitrixUsers = (bitrixUsers: any[]): User[] => {
   return bitrixUsers.map(user => ({
-    id: user.ID,
+    id: String(user.ID),
     name: user.NAME || '',
     lastName: user.LAST_NAME || '',
     position: user.WORK_POSITION || '',
-    departmentIds: user.UF_DEPARTMENT || [],
+    departmentIds: Array.isArray(user.UF_DEPARTMENT)
+      ? user.UF_DEPARTMENT.map((deptId: any) => String(deptId))
+      : [],
     active: user.ACTIVE === true
   }));
 };
@@ -16,9 +18,9 @@ export const transformBitrixUsers = (bitrixUsers: any[]): User[] => {
 // Трансформация подразделений Bitrix24
 export const transformBitrixDepartments = (bitrixDepts: any[]): Department[] => {
   return bitrixDepts.map(dept => ({
-    id: dept.ID,
+    id: String(dept.ID),
     name: dept.NAME,
-    parent: dept.PARENT || undefined,
+    parent: dept.PARENT ? String(dept.PARENT) : undefined,
     users: [],
     sort: dept.SORT || 0
   }));
@@ -59,7 +61,7 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
       else if (task.STATUS === '3') backgroundColor = '#ff9800'; // Оранжевый - в работе
 
       return {
-        id: task.ID,
+        id: String(task.ID),
         name: task.TITLE || 'Без названия',
         start,
         end,
@@ -71,7 +73,7 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
           progressColor: '#fff',
           progressSelectedColor: '#fff'
         },
-        project: task.RESPONSIBLE_ID // Привязываем к ответственному
+        project: String(task.RESPONSIBLE_ID) // Привязываем к ответственному
       };
     });
 };
