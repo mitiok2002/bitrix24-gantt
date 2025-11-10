@@ -78,12 +78,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const response = await axios.post(
         `https://${domain}/rest/tasks.task.list.json`,
         {
+          auth: token,
           filter: {},
           select: ['ID', 'TITLE', 'DESCRIPTION', 'STATUS', 'RESPONSIBLE_ID', 'CREATED_DATE', 'DEADLINE', 'START_DATE_PLAN', 'END_DATE_PLAN', 'CLOSED_DATE', 'GROUP_ID'],
           start,
           limit
-        },
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        }
       );
       console.log('Tasks API result', response.data?.result?.tasks?.length ?? 'no tasks field', 'keys:', Object.keys(response.data || {}));
       return res.json(response.data);
