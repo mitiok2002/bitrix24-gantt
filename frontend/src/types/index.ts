@@ -48,6 +48,9 @@ export interface GanttTask {
   isDisabled?: boolean;
   project?: string;
   hideChildren?: boolean;
+  status?: string;
+  responsibleId?: string;
+  raw?: unknown;
 }
 
 export interface Department {

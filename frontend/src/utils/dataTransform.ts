@@ -50,6 +50,11 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
       return hasStartDate && hasEndDate;
     })
     .map(task => {
+      const title =
+        pickField(task, ['TITLE', 'title']) ||
+        pickField(task, ['NAME', 'name']) ||
+        'Без названия';
+
       const startDate =
         pickField(task, ['START_DATE_PLAN', 'startDatePlan']) ||
         pickField(task, ['CREATED_DATE', 'createdDate']);
@@ -69,6 +74,8 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
       // Определяем прогресс на основе статуса
       let progress = 0;
       const status = pickField(task, ['STATUS', 'status']);
+      const responsibleId =
+        pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? '';
       if (status === '5') progress = 100; // Завершена
       else if (status === '4') progress = 75; // Ждет контроля
       else if (status === '3') progress = 50; // В работе
@@ -80,22 +87,27 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
       else if (status === '7') backgroundColor = '#f44336'; // Красный - отложена
       else if (status === '3') backgroundColor = '#ff9800'; // Оранжевый - в работе
 
+      const id =
+        pickField(task, ['ID', 'id']) ??
+        `${String(title)}_${pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? 'unknown'}`;
+
       return {
-        id: String(task.ID),
-        name: task.TITLE || 'Без названия',
+        id: String(id),
+        name: String(title),
         start,
         end,
         progress,
         type: 'task' as const,
+        status: status ? String(status) : undefined,
+        responsibleId: String(responsibleId),
+        raw: task,
         styles: {
           backgroundColor,
           backgroundSelectedColor: backgroundColor,
           progressColor: '#fff',
           progressSelectedColor: '#fff'
         },
-        project: String(
-          pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? ''
-        ) // Привязываем к ответственному
+        project: String(responsibleId) // Привязываем к ответственному
       };
     });
 };

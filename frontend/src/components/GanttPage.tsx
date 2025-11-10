@@ -19,7 +19,8 @@ export const GanttPage = () => {
     dateRange,
     selectedDepartments,
     selectedUsers,
-    searchQuery
+    searchQuery,
+    statusFilter
   } = useFilterStore();
 
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useTasks();
@@ -57,6 +58,13 @@ export const GanttPage = () => {
           (taskStart <= rangeStart && taskEnd >= rangeEnd)
         );
       });
+    }
+
+    // Фильтруем по статусу
+    if (statusFilter.length > 0) {
+      filteredTasks = filteredTasks.filter(task =>
+        task.status ? statusFilter.includes(task.status) : false
+      );
     }
 
     // Фильтрация пользователей

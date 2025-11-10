@@ -106,36 +106,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /api/tasks
   if (path === "tasks" && req.method === "GET") {
     try {
-      const { start = 0, limit = 50 } = req.query;
-      const response = await axios.post(
-        `https://${domain}/rest/tasks.task.list.json`,
-        {
-          auth: token,
-          filter: {},
-          select: [
-            "ID",
-            "TITLE",
-            "DESCRIPTION",
-            "STATUS",
-            "RESPONSIBLE_ID",
-            "CREATED_DATE",
-            "DEADLINE",
-            "START_DATE_PLAN",
-            "END_DATE_PLAN",
-            "CLOSED_DATE",
-            "GROUP_ID",
-          ],
-          start,
-          limit,
+      const { start = "0", limit = "50" } = req.query;
+      const startNum = Number(start);
+      const limitNumRaw = Number(limit);
+      const limitNum = Number.isNaN(limitNumRaw) ? 50 : limitNumRaw;
+      const maxIterations = 40; // ~2000 задач
+
+      let next = Number.isNaN(startNum) ? 0 : startNum;
+      let iteration = 0;
+      const allTasks: any[] = [];
+      let total: number | undefined;
+
+      while (iteration < maxIterations) {
+        const response = await axios.post(
+          `https://${domain}/rest/tasks.task.list.json`,
+          {
+            auth: token,
+            filter: {},
+            select: [
+              "ID",
+              "TITLE",
+              "DESCRIPTION",
+              "STATUS",
+              "RESPONSIBLE_ID",
+              "CREATED_DATE",
+              "DEADLINE",
+              "START_DATE_PLAN",
+              "END_DATE_PLAN",
+              "CLOSED_DATE",
+              "GROUP_ID",
+              "description",
+              "responsibleId",
+              "startDatePlan",
+              "endDatePlan",
+              "createdDate",
+              "deadline",
+            ],
+            start: next,
+            limit: limitNum,
+          }
+        );
+
+        const data = response.data || {};
+        const tasksChunk = Array.isArray(data.result?.tasks)
+          ? data.result.tasks
+          : Array.isArray(data.result)
+          ? data.result
+          : [];
+
+        allTasks.push(...tasksChunk);
+
+        if (total === undefined && typeof data.total === "number") {
+          total = data.total;
         }
-      );
-      console.log(
-        "Tasks API result",
-        response.data?.result?.tasks?.length ?? "no tasks field",
-        "keys:",
-        Object.keys(response.data || {})
-      );
-      return res.json(response.data);
+
+        if (data.next === undefined || data.next === null) {
+          break;
+        }
+
+        next = Number(data.next);
+        if (!Number.isFinite(next)) {
+          break;
+        }
+
+        iteration += 1;
+      }
+
+      return res.json({
+        result: {
+          tasks: allTasks,
+        },
+        total,
+      });
     } catch (error: any) {
       console.error("Tasks API error:", error.response?.data || error.message);
       return res.status(500).json({ error: "Failed to fetch tasks" });
