@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Input, Card, Typography, Space, message } from 'antd';
 import { authApi } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
@@ -9,6 +9,19 @@ export const LoginPage = () => {
   const [domain, setDomain] = useState('');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore((state) => state.setAuth);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (code && window.opener) {
+      window.opener.postMessage(
+        { type: 'bitrix-auth-success', code },
+        window.location.origin
+      );
+      window.close();
+    }
+  }, []);
 
   const handleLogin = async () => {
     if (!domain) {
