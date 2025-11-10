@@ -85,6 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
+      console.log('Tasks API result', response.data?.result?.tasks?.length ?? 'no tasks field', 'keys:', Object.keys(response.data || {}));
       return res.json(response.data);
     } catch (error: any) {
       console.error('Tasks API error:', error.response?.data || error.message);
