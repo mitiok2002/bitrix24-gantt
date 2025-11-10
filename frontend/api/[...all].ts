@@ -28,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     const clientId = process.env.BITRIX24_CLIENT_ID;
     const redirectUri = process.env.BITRIX24_REDIRECT_URI;
+    console.log('Auth request for domain', domain, 'redirectUri', redirectUri);
     const authUrl = `https://${domain}/oauth/authorize/?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}`;
     
     return res.json({ authUrl });
