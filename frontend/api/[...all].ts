@@ -50,6 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         redirect_uri: process.env.BITRIX24_REDIRECT_URI
       });
 
+      console.log('Token exchange raw response', response.data);
       const { access_token, refresh_token } = response.data;
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       tokenStorage.set(sessionId, { access_token, refresh_token, domain });
