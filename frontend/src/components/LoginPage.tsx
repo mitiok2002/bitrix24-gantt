@@ -54,6 +54,7 @@ export const LoginPage = () => {
           try {
             const { code } = event.data;
             const { sessionId, access_token } = await authApi.exchangeCode(code, domain);
+            console.log('Received tokens', sessionId, access_token);
             setAuth(sessionId, access_token, domain);
             message.success('Авторизация успешна!');
           } catch (error) {
