@@ -19,15 +19,32 @@ const statusMap: Record<string, string> = {
 };
 
 const CustomTooltip = ({ task }: { task: GanttTask }) => {
+  const rawTask = task.raw as Record<string, any> | undefined;
+  const isRealTask = task.type === 'task';
+  const rawId =
+    rawTask?.ID ?? rawTask?.id ?? rawTask?.taskId ?? rawTask?.ID?.toString();
+  const taskId = String(rawId ?? task.id);
   const rawResponsible =
-    (task.raw as any)?.responsible?.name || (task.raw as any)?.responsible?.NAME;
+    rawTask?.responsible?.name || rawTask?.responsible?.NAME;
   const responsibleName =
     rawResponsible ??
     (task.assigneeId ? `Ответственный ID: ${task.assigneeId}` : 'Не назначено');
 
   return (
     <div style={{ padding: 8 }}>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>{task.name}</div>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {isRealTask ? `#${taskId} · ${task.name}` : task.name}
+      </div>
+      {isRealTask && (
+        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
+          Название: {task.name}
+        </div>
+      )}
+      {isRealTask && (
+        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
+          ID: {taskId}
+        </div>
+      )}
       <div style={{ fontSize: 12, color: '#555' }}>
         Период: {dayjs(task.start).format('DD.MM.YYYY')} —{' '}
         {dayjs(task.end).format('DD.MM.YYYY')}
