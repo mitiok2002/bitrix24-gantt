@@ -5,11 +5,13 @@
 ### Authentication
 
 #### 1. Получение URL для авторизации
+
 ```bash
 GET /auth/bitrix24?domain=example.bitrix24.ru
 ```
 
 Ответ:
+
 ```json
 {
   "authUrl": "https://example.bitrix24.ru/oauth/authorize/?client_id=..."
@@ -17,6 +19,7 @@ GET /auth/bitrix24?domain=example.bitrix24.ru
 ```
 
 #### 2. Обмен кода на токен
+
 ```bash
 POST /auth/callback
 Content-Type: application/json
@@ -28,6 +31,7 @@ Content-Type: application/json
 ```
 
 Ответ:
+
 ```json
 {
   "sessionId": "session_1234567890_abc123",
@@ -36,11 +40,13 @@ Content-Type: application/json
 ```
 
 #### 3. Получение токена по session ID
+
 ```bash
 GET /auth/token/:sessionId
 ```
 
 Ответ:
+
 ```json
 {
   "access_token": "access_token_here",
@@ -52,12 +58,14 @@ GET /auth/token/:sessionId
 ### Data API
 
 Все data endpoints требуют авторизации через headers:
+
 ```
 Authorization: Bearer <access_token>
 X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 #### 1. Получение задач
+
 ```bash
 GET /api/tasks?start=0&limit=50
 Authorization: Bearer your_access_token
@@ -65,6 +73,7 @@ X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 Ответ:
+
 ```json
 {
   "result": {
@@ -84,6 +93,7 @@ X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 #### 2. Получение подразделений
+
 ```bash
 GET /api/departments
 Authorization: Bearer your_access_token
@@ -91,6 +101,7 @@ X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 Ответ:
+
 ```json
 {
   "result": [
@@ -105,6 +116,7 @@ X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 #### 3. Получение пользователей
+
 ```bash
 GET /api/users?start=0
 Authorization: Bearer your_access_token
@@ -112,6 +124,7 @@ X-Bitrix-Domain: example.bitrix24.ru
 ```
 
 Ответ:
+
 ```json
 {
   "result": [
@@ -139,13 +152,13 @@ import { useAuthStore } from './stores/authStore';
 const handleLogin = async (domain: string) => {
   // Получаем URL
   const { authUrl } = await authApi.getAuthUrl(domain);
-  
+
   // Открываем окно авторизации
   const authWindow = window.open(authUrl, ...);
-  
+
   // После получения кода
   const { sessionId, access_token } = await authApi.exchangeCode(code, domain);
-  
+
   // Сохраняем в store
   useAuthStore.getState().setAuth(sessionId, access_token, domain);
 };
@@ -153,13 +166,13 @@ const handleLogin = async (domain: string) => {
 // Получение данных
 const loadData = async () => {
   const { accessToken, domain } = useAuthStore.getState();
-  
+
   // Загружаем задачи
   const tasksResponse = await bitrixApi.getTasks(accessToken, domain);
-  
+
   // Загружаем пользователей
   const usersResponse = await bitrixApi.getUsers(accessToken, domain);
-  
+
   // Загружаем подразделения
   const deptsResponse = await bitrixApi.getDepartments(accessToken, domain);
 };
@@ -168,17 +181,17 @@ const loadData = async () => {
 ### Пример использования hooks
 
 ```typescript
-import { useTasks, useUsers, useDepartments } from './hooks/useBitrixData';
+import { useTasks, useUsers, useDepartments } from "./hooks/useBitrixData";
 
 function MyComponent() {
-const { data: tasksData, isLoading: tasksLoading } = useTasks();
+  const { data: tasksData, isLoading: tasksLoading } = useTasks();
   const { data: users, isLoading: usersLoading } = useUsers();
   const { data: departments, isLoading: deptsLoading } = useDepartments();
-  
+
   if (tasksLoading || usersLoading || deptsLoading) {
     return <Spin />;
   }
-  
+
   return (
     <div>
       <p>Задач: {tasks?.length}</p>
@@ -222,6 +235,7 @@ curl http://localhost:3001/api/departments \
 
 1. Импортируйте коллекцию endpoints
 2. Настройте environment variables:
+
    - `BASE_URL`: http://localhost:3001
    - `ACCESS_TOKEN`: ваш токен
    - `DOMAIN`: ваш домен Bitrix24
@@ -244,9 +258,9 @@ curl http://localhost:3001/api/departments \
 ```
 
 HTTP коды:
+
 - `200` - Успех
 - `400` - Неверные параметры запроса
 - `401` - Не авторизован
 - `404` - Ресурс не найден
 - `500` - Внутренняя ошибка сервера
-

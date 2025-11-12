@@ -37,62 +37,6 @@ export const GanttPage = () => {
   const filteredData = useMemo(() => {
     if (!tasksData || !users || !departments) return null;
 
-    // Фильтрация задач
-    let filteredTasks = [...(tasksData.ganttTasks ?? [])];
-
-    // Фильтр по поиску
-    if (searchQuery) {
-      filteredTasks = filteredTasks.filter(task =>
-        task.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Фильтр по датам
-    if (dateRange) {
-      filteredTasks = filteredTasks.filter(task => {
-        const taskStart = task.start.getTime();
-        const taskEnd = task.end.getTime();
-        const rangeStart = dateRange[0].getTime();
-        const rangeEnd = dateRange[1].getTime();
-        
-        return (
-          (taskStart >= rangeStart && taskStart <= rangeEnd) ||
-          (taskEnd >= rangeStart && taskEnd <= rangeEnd) ||
-          (taskStart <= rangeStart && taskEnd >= rangeEnd)
-        );
-      });
-    }
-
-    // Фильтруем по статусу
-    if (statusFilter.length > 0) {
-      filteredTasks = filteredTasks.filter(task =>
-        task.status ? statusFilter.includes(task.status) : false
-      );
-    }
-
-    // Фильтрация пользователей
-    let filteredUsers = [...users];
-    if (selectedUsers.length > 0) {
-      filteredUsers = filteredUsers.filter(user =>
-        selectedUsers.includes(user.id)
-      );
-    }
-
-    // Фильтрация подразделений
-    let filteredDepartments = [...departments];
-    if (selectedDepartments.length > 0) {
-      filteredDepartments = filteredDepartments.filter(dept =>
-        selectedDepartments.includes(dept.id)
-      );
-      
-      // Также фильтруем пользователей по выбранным подразделениям
-      filteredUsers = filteredUsers.filter(user =>
-        user.departmentIds.some(deptId => selectedDepartments.includes(deptId))
-      );
-    }
-
-    if (!tasksData) return null;
-
     let filteredTasks = [...(tasksData.ganttTasks ?? [])];
 
     if (searchQuery) {
@@ -135,10 +79,6 @@ export const GanttPage = () => {
 
     if (showOnlyCritical) {
       filteredTasks = filteredTasks.filter(task => task.isCritical);
-    }
-
-    if (!users || !departments) {
-      return null;
     }
 
     let filteredUsers = [...users];
