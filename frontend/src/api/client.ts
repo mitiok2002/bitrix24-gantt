@@ -70,10 +70,7 @@ api.interceptors.response.use(
     return response;
   },
   (error: AxiosError<{ error?: string }>) => {
-    if (
-      error.response?.status === 401 &&
-      error.response?.data?.error === "token_expired"
-    ) {
+    if (error.response?.status === 401) {
       const authState = useAuthStore.getState();
       authState.clearAuth();
     }
