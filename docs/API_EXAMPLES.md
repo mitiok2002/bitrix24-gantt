@@ -171,7 +171,7 @@ const loadData = async () => {
 import { useTasks, useUsers, useDepartments } from './hooks/useBitrixData';
 
 function MyComponent() {
-  const { data: tasks, isLoading: tasksLoading } = useTasks();
+const { data: tasksData, isLoading: tasksLoading } = useTasks();
   const { data: users, isLoading: usersLoading } = useUsers();
   const { data: departments, isLoading: deptsLoading } = useDepartments();
   

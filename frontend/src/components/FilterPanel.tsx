@@ -3,7 +3,7 @@ import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import quarterOfYear from 'dayjs/plugin/quarterOfYear';
 import { useFilterStore } from '../stores/filterStore';
-import type { Department, User } from '../types';
+import type { Department, User, BitrixProject } from '../types';
 
 dayjs.extend(quarterOfYear);
 
@@ -13,20 +13,33 @@ const { Search } = Input;
 interface FilterPanelProps {
   departments: Department[];
   users: User[];
+  projects: BitrixProject[];
+  stats: {
+    total: number;
+    overdue: number;
+    completed: number;
+    critical: number;
+  };
 }
 
-export const FilterPanel = ({ departments, users }: FilterPanelProps) => {
+export const FilterPanel = ({ departments, users, projects, stats }: FilterPanelProps) => {
   const {
     dateRange,
     selectedDepartments,
     selectedUsers,
+    selectedProjects,
     searchQuery,
     statusFilter,
+    showOnlyOverdue,
+    showOnlyCritical,
     setDateRange,
     setSelectedDepartments,
     setSelectedUsers,
+    setSelectedProjects,
     setSearchQuery,
     setStatusFilter,
+    setShowOnlyOverdue,
+    setShowOnlyCritical,
     resetFilters
   } = useFilterStore();
 
@@ -86,6 +99,14 @@ export const FilterPanel = ({ departments, users }: FilterPanelProps) => {
       }
     >
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        {/* Метрики */}
+        <Space wrap size={[8, 8]}>
+          <Tag color="blue">Всего: {stats.total}</Tag>
+          <Tag color="green">Завершено: {stats.completed}</Tag>
+          <Tag color="red">Просрочено: {stats.overdue}</Tag>
+          <Tag color="gold">Критический путь: {stats.critical}</Tag>
+        </Space>
+
         {/* Поиск */}
         <Search
           placeholder="Поиск по названию задачи"
@@ -115,6 +136,26 @@ export const FilterPanel = ({ departments, users }: FilterPanelProps) => {
               </Tag>
             ))}
           </Space>
+        </div>
+
+        {/* Проекты */}
+        <div>
+          <div style={{ marginBottom: 8, fontWeight: 500 }}>Проекты</div>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="Выберите проекты"
+            value={selectedProjects}
+            onChange={setSelectedProjects}
+            options={[
+              { label: 'Без проекта', value: 'unassigned' },
+              ...projects.map(project => ({
+                label: project.name,
+                value: project.id
+              }))
+            ]}
+            maxTagCount="responsive"
+          />
         </div>
 
         {/* Подразделения */}
@@ -153,6 +194,25 @@ export const FilterPanel = ({ departments, users }: FilterPanelProps) => {
               (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
             }
           />
+        </div>
+
+        {/* Быстрые пресеты */}
+        <div>
+          <div style={{ marginBottom: 8, fontWeight: 500 }}>Быстрые пресеты</div>
+          <Space size="small" wrap>
+            <Tag.CheckableTag
+              checked={showOnlyOverdue}
+              onChange={(checked) => setShowOnlyOverdue(checked)}
+            >
+              Просрочено
+            </Tag.CheckableTag>
+            <Tag.CheckableTag
+              checked={showOnlyCritical}
+              onChange={(checked) => setShowOnlyCritical(checked)}
+            >
+              Критический путь
+            </Tag.CheckableTag>
+          </Space>
         </div>
 
         {/* Статусы */}

@@ -247,6 +247,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           let iteration = 0;
           const allTasks: any[] = [];
           let total: number | undefined;
+          const groupIds = new Set<number>();
 
           while (iteration < maxIterations) {
             const response = await axios.post(
@@ -266,6 +267,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   "END_DATE_PLAN",
                   "CLOSED_DATE",
                   "GROUP_ID",
+                  "PARENT_ID",
+                  "SE_DEPENDS_ON",
                   "description",
                   "responsibleId",
                   "startDatePlan",
@@ -286,6 +289,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               : [];
 
             allTasks.push(...tasksChunk);
+            tasksChunk.forEach((task: any) => {
+              const rawGroup =
+                task.GROUP_ID ??
+                task.groupId ??
+                (task.group && (task.group.id || task.group.ID));
+              const numericGroup = Number(rawGroup);
+              if (Number.isFinite(numericGroup) && numericGroup > 0) {
+                groupIds.add(numericGroup);
+              }
+            });
 
             if (total === undefined && typeof data.total === "number") {
               total = data.total;
@@ -303,7 +316,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             iteration += 1;
           }
 
-          return { tasks: allTasks, total };
+          let projects: any[] = [];
+          if (groupIds.size > 0) {
+            const ids = Array.from(groupIds.values());
+            const chunkSize = 50;
+            for (let index = 0; index < ids.length; index += chunkSize) {
+              const batch = ids.slice(index, index + chunkSize);
+              try {
+                const groupsResponse = await axios.post(
+                  `https://${domain}/rest/sonet_group.get.json`,
+                  {
+                    auth: accessToken,
+                    FILTER: {
+                      ID: batch,
+                    },
+                    SELECT: [
+                      "ID",
+                      "NAME",
+                      "DATE_CREATE",
+                      "VISIBLE",
+                      "OPENED",
+                      "AVATAR",
+                      "IMAGE",
+                      "OWNER_ID",
+                    ],
+                  }
+                );
+                const groupData = groupsResponse.data?.result;
+                if (Array.isArray(groupData)) {
+                  projects.push(...groupData);
+                }
+              } catch (groupError: any) {
+                console.error(
+                  "Projects API error:",
+                  groupError?.response?.data || groupError?.message
+                );
+              }
+            }
+          }
+
+          return { tasks: allTasks, total, projects };
         },
         token
       );
@@ -329,6 +381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({
         result: {
           tasks: result.data.tasks,
+          projects: result.data.projects ?? [],
         },
         total: result.data.total,
       });

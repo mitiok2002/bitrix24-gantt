@@ -1,4 +1,10 @@
-import type { GanttTask, Department, User, GanttRow } from '../types';
+import type {
+  GanttTask,
+  Department,
+  User,
+  GanttRow,
+  BitrixProject
+} from '../types';
 import dayjs from 'dayjs';
 
 // Трансформация пользователей Bitrix24
@@ -37,8 +43,37 @@ const pickField = (task: any, keys: string[]) => {
   return undefined;
 };
 
-export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
-  return bitrixTasks
+export const transformBitrixProjects = (bitrixProjects: any[]): BitrixProject[] => {
+  return bitrixProjects.map(project => {
+    const id = String(project.ID ?? project.id);
+    return {
+      id,
+      name: project.NAME ?? project.name ?? 'Без названия',
+      dateCreate: project.DATE_CREATE ?? project.dateCreate,
+      visible: project.VISIBLE ?? project.visible ?? false,
+      opened: project.OPENED ?? project.opened ?? false,
+      avatar: project.AVATAR ?? project.avatar ?? undefined,
+      image: project.IMAGE ?? project.image ?? undefined,
+      ownerId:
+        project.OWNER_ID !== undefined
+          ? String(project.OWNER_ID)
+          : project.ownerId !== undefined
+          ? String(project.ownerId)
+          : undefined
+    };
+  });
+};
+
+export const transformBitrixTasks = (
+  bitrixTasks: any[],
+  bitrixProjects: any[] = []
+): GanttTask[] => {
+  const projectMap = new Map<string, BitrixProject>();
+  transformBitrixProjects(bitrixProjects).forEach(project => {
+    projectMap.set(project.id, project);
+  });
+
+  const transformedTasks = bitrixTasks
     .filter(task => {
       const hasStartDate =
         pickField(task, ['START_DATE_PLAN', 'startDatePlan']) ||
@@ -91,6 +126,34 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
         pickField(task, ['ID', 'id']) ??
         `${String(title)}_${pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? 'unknown'}`;
 
+      const parentId = pickField(task, ['PARENT_ID', 'parentId']);
+      const groupId = pickField(task, ['GROUP_ID', 'groupId']);
+      const projectId =
+        groupId !== undefined && groupId !== null
+          ? String(groupId)
+          : undefined;
+      const projectMeta = projectId ? projectMap.get(projectId) : undefined;
+
+      const depsRaw =
+        task.SE_DEPENDS_ON ??
+        task.seDependsOn ??
+        task.DEPENDS_ON ??
+        [];
+      const dependencies = Array.isArray(depsRaw)
+        ? depsRaw
+            .map((dep: any) => dep.DEPENDS_ON_ID ?? dep.dependsOnId ?? dep.TASK_ID ?? dep.taskId)
+            .filter((depId: any) => depId !== undefined && depId !== null)
+            .map((depId: any) => String(depId))
+        : [];
+
+      const deadlineValue = pickField(task, ['DEADLINE', 'deadline']);
+      const isOverdue =
+        deadlineValue && status !== '5'
+          ? dayjs(deadlineValue).isBefore(dayjs(), 'day')
+          : false;
+
+      const assigneeId = responsibleId ? String(responsibleId) : undefined;
+
       return {
         id: String(id),
         name: String(title),
@@ -99,7 +162,8 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
         progress,
         type: 'task' as const,
         status: status ? String(status) : undefined,
-        responsibleId: String(responsibleId),
+        responsibleId: assigneeId,
+        assigneeId,
         raw: task,
         styles: {
           backgroundColor,
@@ -107,99 +171,179 @@ export const transformBitrixTasks = (bitrixTasks: any[]): GanttTask[] => {
           progressColor: '#fff',
           progressSelectedColor: '#fff'
         },
-        project: String(responsibleId) // Привязываем к ответственному
+        project: assigneeId, // Текущая группировка по ответственному
+        parentId: parentId !== undefined ? String(parentId) : null,
+        projectId: projectId ?? null,
+        projectName: projectMeta?.name,
+        projectMeta,
+        dependencies,
+        isOverdue
       };
     });
+
+  return markCriticalPath(transformedTasks);
 };
 
-// Построение дерева подразделений с пользователями
-export const buildDepartmentTree = (
-  departments: Department[],
-  users: User[]
-): Department[] => {
-  // Создаем копию массива подразделений
-  const deptMap = new Map<string, Department>();
-  departments.forEach(dept => {
-    deptMap.set(dept.id, { ...dept, users: [] });
-  });
-
-  // Распределяем пользователей по подразделениям
-  users.forEach(user => {
-    if (user.departmentIds && user.departmentIds.length > 0) {
-      // Берем первое подразделение пользователя
-      const deptId = user.departmentIds[0];
-      const dept = deptMap.get(deptId);
-      if (dept) {
-        dept.users.push(user);
-      }
-    }
-  });
-
-  // Строим дерево
-  const rootDepts: Department[] = [];
-  deptMap.forEach(dept => {
-    if (!dept.parent || dept.parent === '0') {
-      rootDepts.push(dept);
-    }
-  });
-
-  return rootDepts.sort((a, b) => a.sort - b.sort);
-};
-
-// Построение строк Gantt с деревом подразделений и пользователей
+// Построение проектного дерева
 export const buildGanttRows = (
-  departments: Department[],
-  users: User[],
   tasks: GanttTask[],
+  projects: BitrixProject[],
+  users: User[],
   collapsedIds: Set<string> = new Set()
 ): GanttRow[] => {
   const rows: GanttRow[] = [];
-  const deptWithUsers = buildDepartmentTree(departments, users);
+  if (tasks.length === 0) {
+    return rows;
+  }
 
-  const buildRows = (depts: Department[], level: number = 0, parentId?: string) => {
-    depts.forEach(dept => {
-      // Добавляем строку подразделения
-      const deptRow: GanttRow = {
-        type: 'department',
-        id: `dept_${dept.id}`,
-        name: dept.name,
-        tasks: [],
-        children: [],
-        collapsed: collapsedIds.has(`dept_${dept.id}`),
-        level,
-        parentId
-      };
+  const userMap = new Map<string, User>();
+  users.forEach(user => userMap.set(user.id, user));
 
-      rows.push(deptRow);
+  const taskMap = new Map<string, GanttTask>();
+  tasks.forEach(task => taskMap.set(task.id, task));
 
-      // Если подразделение не свернуто, добавляем его пользователей
-      if (!deptRow.collapsed) {
-        dept.users.forEach(user => {
-          // Получаем задачи пользователя
-          const userTasks = tasks.filter(task => task.project === user.id);
+  const childrenByParent = new Map<string | null, GanttTask[]>();
+  tasks.forEach(task => {
+    const parentKey = task.parentId ?? null;
+    if (!childrenByParent.has(parentKey)) {
+      childrenByParent.set(parentKey, []);
+    }
+    childrenByParent.get(parentKey)!.push(task);
+  });
 
-          const userRow: GanttRow = {
-            type: 'user',
-            id: `user_${user.id}`,
-            name: `${user.lastName} ${user.name}`,
-            tasks: userTasks,
-            level: level + 1,
-            parentId: deptRow.id
-          };
+  const projectMap = new Map<string, BitrixProject>();
+  projects.forEach(project => projectMap.set(project.id, project));
 
-          rows.push(userRow);
-        });
+  const buckets = new Map<string, GanttTask[]>();
+  tasks.forEach(task => {
+    const key =
+      task.projectId && projectMap.has(task.projectId)
+        ? task.projectId
+        : 'unassigned';
+    if (!buckets.has(key)) {
+      buckets.set(key, []);
+    }
+    buckets.get(key)!.push(task);
+  });
 
-        // Рекурсивно обрабатываем дочерние подразделения
-        const childDepts = departments.filter(d => d.parent === dept.id);
-        if (childDepts.length > 0) {
-          buildRows(childDepts, level + 1, deptRow.id);
-        }
-      }
+  const gatherDescendants = (taskId: string): GanttTask[] => {
+    const direct = childrenByParent.get(taskId) ?? [];
+    const result: GanttTask[] = [];
+    direct.forEach(child => {
+      result.push(child);
+      result.push(...gatherDescendants(child.id));
     });
+    return result;
   };
 
-  buildRows(deptWithUsers);
+  buckets.forEach((projectTasks, projectId) => {
+    if (projectTasks.length === 0) {
+      return;
+    }
+
+    const projectMeta =
+      projectId !== 'unassigned' ? projectMap.get(projectId) : undefined;
+    const projectRowId =
+      projectId === 'unassigned' ? 'project_unassigned' : `project_${projectId}`;
+
+    const projectRow: GanttRow = {
+      type: 'project',
+      id: projectRowId,
+      name: projectMeta?.name ?? 'Без проекта',
+      tasks: [],
+      children: [],
+      collapsed: collapsedIds.has(projectRowId),
+      level: 0
+    };
+
+    const roots = projectTasks.filter(task => {
+      if (!task.parentId) return true;
+      const parent = taskMap.get(task.parentId);
+      if (!parent) return true;
+      return (parent.projectId ?? null) !== (task.projectId ?? null);
+    });
+
+    roots.forEach(rootTask => {
+      const taskRowId = `task_${rootTask.id}`;
+      const tasksInGroup = [
+        rootTask,
+        ...gatherDescendants(rootTask.id).filter(
+          descendant =>
+            (descendant.projectId ?? null) === (rootTask.projectId ?? null)
+        )
+      ];
+
+      const taskRow: GanttRow = {
+        type: 'task-group',
+        id: taskRowId,
+        name: rootTask.name,
+        tasks: [rootTask],
+        children: [],
+        collapsed: collapsedIds.has(taskRowId),
+        level: 1,
+        parentId: projectRow.id
+      };
+
+      const assigneeBuckets = new Map<string, GanttTask[]>();
+      tasksInGroup.forEach(task => {
+        const assigneeKey =
+          task.assigneeId ?? task.responsibleId ?? 'unassigned';
+        if (!assigneeBuckets.has(assigneeKey)) {
+          assigneeBuckets.set(assigneeKey, []);
+        }
+        assigneeBuckets.get(assigneeKey)!.push(task);
+      });
+
+      assigneeBuckets.forEach((assignedTasks, assigneeKey) => {
+        const user =
+          assigneeKey !== 'unassigned' ? userMap.get(assigneeKey) : undefined;
+        const label =
+          assigneeKey === 'unassigned'
+            ? 'Не назначено'
+            : `${user?.lastName ?? ''} ${user?.name ?? ''}`.trim() ||
+              `Пользователь ${assigneeKey}`;
+        const assigneeRowId = `assignee_${rootTask.id}_${assigneeKey}`;
+        const assigneeRow: GanttRow = {
+          type: 'assignee',
+          id: assigneeRowId,
+          name: label,
+          tasks: assignedTasks,
+          level: 2,
+          parentId: taskRow.id,
+          collapsed: collapsedIds.has(assigneeRowId)
+        };
+
+        if (!taskRow.children) {
+          taskRow.children = [];
+        }
+        taskRow.children.push(assigneeRow);
+      });
+
+      if (!taskRow.children) {
+        taskRow.children = [];
+      }
+
+      taskRow.children.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      projectRow.children!.push(taskRow);
+    });
+
+    if (projectRow.children && projectRow.children.length > 0) {
+      projectRow.children.sort((a, b) => {
+        const aStart = getAllTasksFromRow(a).reduce(
+          (min, task) => Math.min(min, task.start.getTime()),
+          Infinity
+        );
+        const bStart = getAllTasksFromRow(b).reduce(
+          (min, task) => Math.min(min, task.start.getTime()),
+          Infinity
+        );
+        return aStart - bStart;
+      });
+      rows.push(projectRow);
+    }
+  });
+
+  rows.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   return rows;
 };
 
@@ -207,52 +351,157 @@ export const buildGanttRows = (
 export const createGanttTaskList = (rows: GanttRow[]): GanttTask[] => {
   const tasks: GanttTask[] = [];
 
-  rows.forEach(row => {
-    if (row.type === 'department') {
-      // Для подразделения создаем project task
-      const deptTasks = getAllTasksFromRow(row, rows);
-      if (deptTasks.length > 0) {
-        const minStart = new Date(Math.min(...deptTasks.map(t => t.start.getTime())));
-        const maxEnd = new Date(Math.max(...deptTasks.map(t => t.end.getTime())));
-        
-        tasks.push({
-          id: row.id,
-          name: row.name,
-          start: minStart,
-          end: maxEnd,
-          progress: 0,
-          type: 'project',
-          hideChildren: row.collapsed,
-          styles: {
-            backgroundColor: '#9e9e9e',
-            backgroundSelectedColor: '#757575'
-          }
-        });
-      }
-    } else if (row.type === 'user' && row.tasks.length > 0) {
-      // Добавляем задачи пользователя
+  const traverse = (row: GanttRow, parentId?: string) => {
+    const allTasks = getAllTasksFromRow(row);
+    if (allTasks.length > 0) {
+      const minStart = new Date(
+        Math.min(...allTasks.map(t => t.start.getTime()))
+      );
+      const maxEnd = new Date(
+        Math.max(...allTasks.map(t => t.end.getTime()))
+      );
+      const avgProgress =
+        allTasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) /
+        allTasks.length;
+
+      const summaryTask: GanttTask = {
+        id: row.id,
+        name: row.name,
+        start: minStart,
+        end: maxEnd,
+        progress: Number.isFinite(avgProgress) ? avgProgress : 0,
+        type: 'project',
+        hideChildren: row.collapsed,
+        project: parentId,
+        styles: {
+          backgroundColor:
+            row.type === 'project'
+              ? '#546e7a'
+              : row.type === 'task-group'
+              ? '#78909c'
+              : '#90a4ae',
+          backgroundSelectedColor:
+            row.type === 'project'
+              ? '#37474f'
+              : row.type === 'task-group'
+              ? '#607d8b'
+              : '#78909c'
+        },
+        raw: { type: row.type }
+      };
+
+      tasks.push(summaryTask);
+    }
+
+    if (row.type === 'assignee') {
       row.tasks.forEach(task => {
+        const overdueBackground = task.isOverdue
+          ? '#f44336'
+          : task.styles?.backgroundColor;
         tasks.push({
           ...task,
-          project: row.parentId // Привязываем к родительскому подразделению
+          project: row.id,
+          styles: {
+            ...task.styles,
+            backgroundColor: overdueBackground,
+            backgroundSelectedColor: task.isOverdue
+              ? '#e53935'
+              : task.styles?.backgroundSelectedColor ?? overdueBackground,
+            progressColor: task.isCritical
+              ? '#ffeb3b'
+              : task.styles?.progressColor ?? '#fff',
+            progressSelectedColor: task.isCritical
+              ? '#fdd835'
+              : task.styles?.progressSelectedColor ?? '#fff'
+          }
         });
       });
     }
-  });
 
+    row.children?.forEach(child => traverse(child, row.id));
+  };
+
+  rows.forEach(row => traverse(row));
   return tasks;
 };
 
 // Получение всех задач из строки и её детей
-const getAllTasksFromRow = (row: GanttRow, allRows: GanttRow[]): GanttTask[] => {
+const getAllTasksFromRow = (row: GanttRow): GanttTask[] => {
   const tasks: GanttTask[] = [...row.tasks];
-  
-  // Находим всех детей
-  const children = allRows.filter(r => r.parentId === row.id);
-  children.forEach(child => {
-    tasks.push(...getAllTasksFromRow(child, allRows));
+  row.children?.forEach(child => {
+    tasks.push(...getAllTasksFromRow(child));
+  });
+  return tasks;
+};
+
+const markCriticalPath = (tasks: GanttTask[]): GanttTask[] => {
+  if (tasks.length === 0) {
+    return tasks;
+  }
+
+  const taskMap = new Map<string, GanttTask>();
+  tasks.forEach(task => taskMap.set(task.id, task));
+
+  const memo = new Map<string, number>();
+  const getDuration = (task: GanttTask) =>
+    Math.max(task.end.getTime() - task.start.getTime(), 0);
+
+  const dfs = (task: GanttTask): number => {
+    if (memo.has(task.id)) {
+      return memo.get(task.id)!;
+    }
+    const deps = task.dependencies ?? [];
+    if (deps.length === 0) {
+      const value = getDuration(task);
+      memo.set(task.id, value);
+      return value;
+    }
+    let maxPrev = 0;
+    deps.forEach(depId => {
+      const depTask = taskMap.get(depId);
+      if (depTask) {
+        maxPrev = Math.max(maxPrev, dfs(depTask));
+      }
+    });
+    const value = maxPrev + getDuration(task);
+    memo.set(task.id, value);
+    return value;
+  };
+
+  let maxDistance = 0;
+  tasks.forEach(task => {
+    maxDistance = Math.max(maxDistance, dfs(task));
   });
 
-  return tasks;
+  const criticalIds = new Set<string>();
+
+  const backtrack = (task: GanttTask) => {
+    if (criticalIds.has(task.id)) {
+      return;
+    }
+    criticalIds.add(task.id);
+    const deps = task.dependencies ?? [];
+    const taskDistance = memo.get(task.id)!;
+    deps.forEach(depId => {
+      const depTask = taskMap.get(depId);
+      if (!depTask) return;
+      const depDistance = memo.get(depTask.id);
+      if (depDistance === undefined) return;
+      if (depDistance + getDuration(task) === taskDistance) {
+        backtrack(depTask);
+      }
+    });
+  };
+
+  tasks.forEach(task => {
+    if (memo.get(task.id) === maxDistance) {
+      backtrack(task);
+    }
+  });
+
+  return tasks.map(task => ({
+    ...task,
+    isCritical: criticalIds.has(task.id)
+  }));
 };
 

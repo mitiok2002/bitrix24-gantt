@@ -11,6 +11,26 @@ export interface BitrixTask {
   endDatePlan?: string;
   closedDate?: string;
   groupId?: string;
+  parentId?: string | null;
+  dependencies?: BitrixTaskDependency[];
+  projectId?: string | null;
+}
+
+export interface BitrixTaskDependency {
+  taskId: string;
+  dependsOnId: string;
+  type?: string;
+}
+
+export interface BitrixProject {
+  id: string;
+  name: string;
+  dateCreate?: string;
+  visible?: boolean;
+  opened?: boolean;
+  avatar?: string;
+  image?: string;
+  ownerId?: string;
 }
 
 export interface BitrixUser {
@@ -50,6 +70,13 @@ export interface GanttTask {
   hideChildren?: boolean;
   status?: string;
   responsibleId?: string;
+  assigneeId?: string;
+  parentId?: string | null;
+  projectId?: string | null;
+  projectName?: string;
+  projectMeta?: BitrixProject;
+  isOverdue?: boolean;
+  isCritical?: boolean;
   raw?: unknown;
 }
 
@@ -71,7 +98,7 @@ export interface User {
 }
 
 export interface GanttRow {
-  type: 'department' | 'user';
+  type: 'project' | 'task-group' | 'assignee';
   id: string;
   name: string;
   tasks: GanttTask[];
@@ -106,6 +133,12 @@ export interface DataState {
   departments: Department[];
   loading: boolean;
   error: string | null;
+}
+
+export interface TasksQueryResult {
+  ganttTasks: GanttTask[];
+  projects: BitrixProject[];
+  rawTasks: any[];
 }
 
 

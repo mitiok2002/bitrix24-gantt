@@ -19,11 +19,14 @@ export const GanttPage = () => {
     dateRange,
     selectedDepartments,
     selectedUsers,
+    selectedProjects,
     searchQuery,
-    statusFilter
+    statusFilter,
+    showOnlyOverdue,
+    showOnlyCritical
   } = useFilterStore();
 
-  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useTasks();
+  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useTasks();
   const { data: users, isLoading: usersLoading, error: usersError } = useUsers();
   const { data: departments, isLoading: deptsLoading, error: deptsError } = useDepartments();
 
@@ -32,10 +35,10 @@ export const GanttPage = () => {
 
   // Применяем фильтры к данным
   const filteredData = useMemo(() => {
-    if (!tasks || !users || !departments) return null;
+    if (!tasksData || !users || !departments) return null;
 
     // Фильтрация задач
-    let filteredTasks = [...tasks];
+    let filteredTasks = [...(tasksData.ganttTasks ?? [])];
 
     // Фильтр по поиску
     if (searchQuery) {
@@ -88,21 +91,112 @@ export const GanttPage = () => {
       );
     }
 
+    if (!tasksData) return null;
+
+    let filteredTasks = [...(tasksData.ganttTasks ?? [])];
+
+    if (searchQuery) {
+      filteredTasks = filteredTasks.filter(task =>
+        task.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (dateRange) {
+      filteredTasks = filteredTasks.filter(task => {
+        const taskStart = task.start.getTime();
+        const taskEnd = task.end.getTime();
+        const rangeStart = dateRange[0].getTime();
+        const rangeEnd = dateRange[1].getTime();
+
+        return (
+          (taskStart >= rangeStart && taskStart <= rangeEnd) ||
+          (taskEnd >= rangeStart && taskEnd <= rangeEnd) ||
+          (taskStart <= rangeStart && taskEnd >= rangeEnd)
+        );
+      });
+    }
+
+    if (statusFilter.length > 0) {
+      filteredTasks = filteredTasks.filter(task =>
+        task.status ? statusFilter.includes(task.status) : false
+      );
+    }
+
+    if (selectedProjects.length > 0) {
+      filteredTasks = filteredTasks.filter(task => {
+        const projectKey = task.projectId ?? 'unassigned';
+        return selectedProjects.includes(projectKey);
+      });
+    }
+
+    if (showOnlyOverdue) {
+      filteredTasks = filteredTasks.filter(task => task.isOverdue);
+    }
+
+    if (showOnlyCritical) {
+      filteredTasks = filteredTasks.filter(task => task.isCritical);
+    }
+
+    if (!users || !departments) {
+      return null;
+    }
+
+    let filteredUsers = [...users];
+    if (selectedUsers.length > 0) {
+      filteredUsers = filteredUsers.filter(user =>
+        selectedUsers.includes(user.id)
+      );
+    }
+
+    let filteredDepartments = [...departments];
+    if (selectedDepartments.length > 0) {
+      filteredDepartments = filteredDepartments.filter(dept =>
+        selectedDepartments.includes(dept.id)
+      );
+
+      filteredUsers = filteredUsers.filter(user =>
+        user.departmentIds.some(deptId => selectedDepartments.includes(deptId))
+      );
+    }
+
     return {
       tasks: filteredTasks,
       users: filteredUsers,
-      departments: filteredDepartments
+      departments: filteredDepartments,
+      projects: tasksData.projects ?? []
     };
-  }, [tasks, users, departments, searchQuery, dateRange, selectedUsers, selectedDepartments]);
+  }, [
+    tasksData,
+    users,
+    departments,
+    searchQuery,
+    dateRange,
+    selectedUsers,
+    selectedDepartments,
+    selectedProjects,
+    statusFilter,
+    showOnlyOverdue,
+    showOnlyCritical
+  ]);
+
+  const summaryStats = useMemo(() => {
+    const allTasks = tasksData?.ganttTasks ?? [];
+    return {
+      total: allTasks.length,
+      overdue: allTasks.filter(task => task.isOverdue).length,
+      completed: allTasks.filter(task => (task.progress ?? 0) >= 100).length,
+      critical: allTasks.filter(task => task.isCritical).length
+    };
+  }, [tasksData]);
 
   // Строим Gantt данные
   const ganttTasks = useMemo(() => {
     if (!filteredData) return [];
 
     const rows = buildGanttRows(
-      filteredData.departments,
-      filteredData.users,
       filteredData.tasks,
+      filteredData.projects,
+      filteredData.users,
       collapsedIds
     );
 
@@ -173,8 +267,13 @@ export const GanttPage = () => {
             overflowY: 'auto'
           }}
         >
-          {departments && users && (
-            <FilterPanel departments={departments} users={users} />
+          {departments && users && tasksData && (
+            <FilterPanel
+              departments={departments}
+              users={users}
+              projects={tasksData.projects ?? []}
+              stats={summaryStats}
+            />
           )}
         </Sider>
 
