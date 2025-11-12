@@ -50,6 +50,22 @@ const executeBitrixRequest = async <T>(
 ): Promise<BitrixResult<T>> => {
   let session = tokenStorage.get(sessionId);
   if (!session) {
+    if (latestToken) {
+      try {
+        const data = await executor(latestToken);
+        return { success: true, data };
+      } catch (error: any) {
+        const status =
+          typeof error?.response?.status === "number"
+            ? error.response.status
+            : 500;
+        const details =
+          error?.response?.data || error?.message || "Unknown error";
+        console.error("Bitrix API fallback error:", details);
+        return { success: false, status, body: details };
+      }
+    }
+
     return { success: false, status: 401, body: { error: "Unauthorized" } };
   }
 
