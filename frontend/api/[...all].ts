@@ -162,7 +162,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Code and domain are required" });
 
     try {
-      const tokenUrl = `https://${domain}/oauth/token/`;
       const params = new URLSearchParams({
         grant_type: "authorization_code",
         client_id: BITRIX24_CLIENT_ID,
@@ -171,10 +170,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         redirect_uri: BITRIX24_REDIRECT_URI,
       });
 
-      const response = await axios.post(tokenUrl, params.toString(), {
+      const response = await axios.post(OAUTH_URL, params.toString(), {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
+        timeout: 8000,
       });
 
       console.log("Token exchange raw response", response.data);
