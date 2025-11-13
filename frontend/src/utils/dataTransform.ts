@@ -347,8 +347,23 @@ export const buildGanttRows = (
     }
   });
 
-  rows.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  rows.sort((a, b) => {
+    const aStart = getEarliestStart(a);
+    const bStart = getEarliestStart(b);
+    if (aStart !== bStart) {
+      return aStart - bStart;
+    }
+    return a.name.localeCompare(b.name, 'ru');
+  });
   return rows;
+};
+
+const getEarliestStart = (row: GanttRow): number => {
+  const tasks = getAllTasksFromRow(row);
+  if (tasks.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.min(...tasks.map((task) => task.start.getTime()));
 };
 
 // Создание плоского списка задач для gantt-task-react

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Gantt, ViewMode } from 'gantt-task-react';
 import 'gantt-task-react/dist/index.css';
 import type { GanttTask } from '../types';
 import { useFilterStore } from '../stores/filterStore';
 import dayjs from 'dayjs';
 import { CustomTaskListTable } from './CustomTaskListTable';
+import { CustomTaskListHeader } from './CustomTaskListHeader';
 
 interface GanttChartProps {
   tasks: GanttTask[];
@@ -85,6 +86,21 @@ const tagStyle = (background: string): React.CSSProperties => ({
 
 export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
   const toggleCollapsed = useFilterStore((state) => state.toggleCollapsed);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [ganttHeight, setGanttHeight] = useState(600);
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 24;
+      setGanttHeight(Math.max(availableHeight, 400));
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
 
   const handleExpanderClick = (task: GanttTask) => {
     if (task.type === 'project') {
@@ -118,7 +134,7 @@ export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
   }
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
       <Gantt
         tasks={tasks}
         viewMode={viewMode}
@@ -126,7 +142,7 @@ export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
         columnWidth={columnWidth}
         listCellWidth="260px"
         onExpanderClick={handleExpanderClick}
-        ganttHeight={600}
+        ganttHeight={ganttHeight}
         barBackgroundColor="#4caf50"
         barBackgroundSelectedColor="#2196f3"
         barProgressColor="#0277bd"
@@ -137,6 +153,7 @@ export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
         todayColor="rgba(255, 193, 7, 0.3)"
         TooltipContent={CustomTooltip}
         TaskListTable={CustomTaskListTable}
+        TaskListHeader={CustomTaskListHeader}
       />
     </div>
   );

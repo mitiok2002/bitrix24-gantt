@@ -20,6 +20,8 @@ interface FilterState {
   setShowOnlyOverdue: (value: boolean) => void;
   setShowOnlyCritical: (value: boolean) => void;
   toggleCollapsed: (id: string) => void;
+  collapseAll: (ids: string[]) => void;
+  expandAll: () => void;
   resetFilters: () => void;
 }
 
@@ -53,6 +55,11 @@ export const useFilterStore = create<FilterState>((set) => ({
       }
       return { collapsedIds: newSet };
     }),
+  collapseAll: (ids) =>
+    set(() => ({
+      collapsedIds: new Set(ids)
+    })),
+  expandAll: () => set(() => ({ collapsedIds: new Set() })),
   
   resetFilters: () =>
     set({
