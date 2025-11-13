@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useFilterStore } from '../stores/filterStore';
 import { useTasks, useUsers, useDepartments } from '../hooks/useBitrixData';
 import { buildGanttRows, createGanttTaskList } from '../utils/dataTransform';
+import type { BitrixProject } from "../types";
 import { GanttChart } from './GanttChart';
 import { FilterPanel } from './FilterPanel';
 
@@ -101,11 +102,32 @@ export const GanttPage = () => {
       );
     }
 
+    const projectMap = new Map<string, BitrixProject>();
+    (tasksData.projects ?? []).forEach((project) => {
+      projectMap.set(project.id, project);
+    });
+
+    filteredTasks.forEach((task) => {
+      if (!task.projectId) {
+        return;
+      }
+      if (!projectMap.has(task.projectId)) {
+        const name =
+          task.projectMeta?.name ??
+          task.projectName ??
+          `Проект ${task.projectId}`;
+        projectMap.set(task.projectId, {
+          id: task.projectId,
+          name,
+        });
+      }
+    });
+
     return {
       tasks: filteredTasks,
       users: filteredUsers,
       departments: filteredDepartments,
-      projects: tasksData.projects ?? []
+      projects: Array.from(projectMap.values()),
     };
   }, [
     tasksData,

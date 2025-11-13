@@ -132,7 +132,28 @@ export const transformBitrixTasks = (
         groupId !== undefined && groupId !== null
           ? String(groupId)
           : undefined;
-      const projectMeta = projectId ? projectMap.get(projectId) : undefined;
+      let projectMeta =
+        projectId ? projectMap.get(projectId) : undefined;
+      const rawGroup =
+        task.GROUP ??
+        task.group ??
+        task.PROJECT ??
+        task.project ??
+        null;
+      if (projectId && !projectMeta) {
+        const rawGroupName =
+          (rawGroup && typeof rawGroup === 'object'
+            ? rawGroup.NAME ?? rawGroup.name
+            : undefined) ??
+          pickField(task, ['GROUP_NAME', 'groupName']);
+
+        projectMeta = {
+          id: projectId,
+          name: rawGroupName ? String(rawGroupName) : `Проект ${projectId}`
+        };
+        projectMap.set(projectId, projectMeta);
+      }
+      const projectName = projectMeta?.name;
 
       const depsRaw =
         task.SE_DEPENDS_ON ??
@@ -174,7 +195,7 @@ export const transformBitrixTasks = (
         project: projectId ?? undefined,
         parentId: parentId !== undefined ? String(parentId) : null,
         projectId: projectId ?? null,
-        projectName: projectMeta?.name,
+        projectName,
         projectMeta,
         dependencies,
         isOverdue
@@ -210,16 +231,23 @@ export const buildGanttRows = (
   const projectMap = new Map<string, BitrixProject>();
   projects.forEach(project => projectMap.set(project.id, project));
 
+  const projectNameMap = new Map<string, string>();
+
   const buckets = new Map<string, GanttTask[]>();
   tasks.forEach(task => {
-    const key =
-      task.projectId && projectMap.has(task.projectId)
-        ? task.projectId
-        : 'unassigned';
-    if (!buckets.has(key)) {
-      buckets.set(key, []);
+    const projectKey = task.projectId ?? 'unassigned';
+    if (task.projectId) {
+      const name =
+        task.projectMeta?.name ??
+        task.projectName ??
+        projectNameMap.get(task.projectId) ??
+        `Проект ${task.projectId}`;
+      projectNameMap.set(task.projectId, name);
     }
-    buckets.get(key)!.push(task);
+    if (!buckets.has(projectKey)) {
+      buckets.set(projectKey, []);
+    }
+    buckets.get(projectKey)!.push(task);
   });
 
   buckets.forEach((projectTasks, projectId) => {
@@ -231,11 +259,15 @@ export const buildGanttRows = (
       projectId !== 'unassigned' ? projectMap.get(projectId) : undefined;
     const projectRowId =
       projectId === 'unassigned' ? 'project_unassigned' : `project_${projectId}`;
+    const projectRowName =
+      projectId === 'unassigned'
+        ? 'Без проекта'
+        : projectMeta?.name ?? projectNameMap.get(projectId) ?? `Проект ${projectId}`;
 
     const projectRow: GanttRow = {
       type: 'project',
       id: projectRowId,
-      name: projectMeta?.name ?? 'Без проекта',
+      name: projectRowName,
       tasks: [],
       children: [],
       collapsed: collapsedIds.has(projectRowId),
