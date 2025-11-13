@@ -267,11 +267,11 @@ export const GanttPage = () => {
             overflowY: "auto",
           }}
         >
-          {departments && users && tasksData && (
+          {departments && users && filteredData && (
             <FilterPanel
               departments={departments}
               users={users}
-              projects={tasksData.projects ?? []}
+              projects={filteredData.projects ?? []}
               stats={summaryStats}
             />
           )}
