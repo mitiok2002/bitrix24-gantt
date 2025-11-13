@@ -16,6 +16,8 @@ export const GanttPage = () => {
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const collapsedIds = useFilterStore((state) => state.collapsedIds);
+  const collapseAll = useFilterStore((state) => state.collapseAll);
+  const expandAll = useFilterStore((state) => state.expandAll);
   const {
     dateRange,
     selectedDepartments,
@@ -184,8 +186,10 @@ export const GanttPage = () => {
   }, [tasksData]);
 
   // Строим Gantt данные
-  const ganttTasks = useMemo(() => {
-    if (!filteredData) return [];
+  const { ganttTasks, projectRowIds } = useMemo(() => {
+    if (!filteredData) {
+      return { ganttTasks: [], projectRowIds: [] as string[] };
+    }
 
     const rows = buildGanttRows(
       filteredData.tasks,
@@ -193,8 +197,20 @@ export const GanttPage = () => {
       collapsedIds
     );
 
-    return createGanttTaskList(rows);
+    return {
+      ganttTasks: createGanttTaskList(rows),
+      projectRowIds: rows.map((row) => row.id),
+    };
   }, [filteredData, collapsedIds]);
+
+  const handleCollapseAll = () => {
+    if (projectRowIds.length === 0) return;
+    collapseAll(projectRowIds);
+  };
+
+  const handleExpandAll = () => {
+    expandAll();
+  };
 
   const handleLogout = () => {
     clearAuth();
@@ -251,6 +267,23 @@ export const GanttPage = () => {
             <Radio.Button value={ViewMode.Week}>Неделя</Radio.Button>
             <Radio.Button value={ViewMode.Month}>Месяц</Radio.Button>
           </Radio.Group>
+
+          <Space size={8}>
+            <Button
+              size="small"
+              onClick={handleCollapseAll}
+              disabled={projectRowIds.length === 0}
+            >
+              Свернуть все
+            </Button>
+            <Button
+              size="small"
+              onClick={handleExpandAll}
+              disabled={projectRowIds.length === 0}
+            >
+              Развернуть все
+            </Button>
+          </Space>
 
           <Button icon={<LogoutOutlined />} onClick={handleLogout}>
             Выход
