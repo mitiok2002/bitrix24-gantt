@@ -13,7 +13,7 @@ const TASK_LIST_TOTAL_WIDTH = Object.values(TASK_LIST_COLUMN_WIDTHS).reduce(
 
 const CustomTaskListHeader = ({
   headerHeight,
-  rowWidth,
+  rowWidth: _rowWidth,
   fontFamily,
   fontSize
 }: {

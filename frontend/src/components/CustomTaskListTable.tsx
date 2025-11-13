@@ -44,15 +44,33 @@ const toLocaleDateStringFactory = (locale: string) => {
   };
 };
 
+type RawTask = {
+  type?: string;
+  responsible?: {
+    name?: string;
+    NAME?: string;
+  };
+  RESPONSIBLE_NAME?: string;
+  RESPONSIBLE_FULL_NAME?: string;
+  RESPONSIBLE_ID?: string;
+  status?: string;
+  STATUS?: string;
+};
+
+type ExtendedTask = Task & {
+  raw?: RawTask;
+  isCritical?: boolean;
+  isOverdue?: boolean;
+  status?: string;
+  assigneeId?: string;
+  responsibleId?: string;
+};
+
 const dateTimeOptions: Intl.DateTimeFormatOptions = {
   weekday: "short",
   year: "numeric",
   month: "long",
   day: "numeric",
-};
-
-type ExtendedTask = Task & {
-  raw?: { type?: string };
 };
 
 const getRowTheme = (task: Task) => {
@@ -100,7 +118,7 @@ const computeIndent = (task: Task, taskMap: Map<string, Task>) => {
 
 export const CustomTaskListTable = ({
   rowHeight,
-  rowWidth,
+  rowWidth: _rowWidth,
   tasks,
   fontFamily,
   fontSize,
@@ -133,6 +151,8 @@ export const CustomTaskListTable = ({
       }}
     >
       {tasks.map((task) => {
+        const extended = task as ExtendedTask;
+        const rawTask = extended.raw;
         const theme = getRowTheme(task);
         const indent = computeIndent(task, taskMap);
         const expanderSymbol =
@@ -147,16 +167,18 @@ export const CustomTaskListTable = ({
         const responsibleWidth = `${TASK_LIST_COLUMN_WIDTHS.responsible}px`;
         const statusWidth = `${TASK_LIST_COLUMN_WIDTHS.status}px`;
         const nameWidth = `${TASK_LIST_COLUMN_WIDTHS.name}px`;
-        const rawTask = (task as ExtendedTask).raw;
         const responsibleLabel =
           rawTask?.responsible?.name ??
           rawTask?.responsible?.NAME ??
-          (task as any).assigneeId ??
-          (task as any).responsibleId ??
+          rawTask?.RESPONSIBLE_FULL_NAME ??
+          rawTask?.RESPONSIBLE_NAME ??
+          extended.assigneeId ??
+          extended.responsibleId ??
           "—";
+        const rawStatus = rawTask?.STATUS ?? rawTask?.status ?? extended.status;
         const statusLabel =
-          task.type === "task" && (task as any).status
-            ? STATUS_LABELS[(task as any).status] ?? (task as any).status
+          task.type === "task" && rawStatus
+            ? STATUS_LABELS[rawStatus] ?? rawStatus
             : "—";
 
         return (
