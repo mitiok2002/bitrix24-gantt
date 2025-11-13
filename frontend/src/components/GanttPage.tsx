@@ -15,6 +15,7 @@ const { Sider, Content, Header } = Layout;
 export const GanttPage = () => {
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const collapsedIds = useFilterStore((state) => state.collapsedIds);
   const {
     dateRange,
     selectedDepartments,
@@ -25,12 +26,6 @@ export const GanttPage = () => {
     showOnlyOverdue,
     showOnlyCritical,
   } = useFilterStore();
-
-  const { collapsedIds, collapseAll, expandAll } = useFilterStore((state) => ({
-    collapsedIds: state.collapsedIds,
-    collapseAll: state.collapseAll,
-    expandAll: state.expandAll,
-  }));
 
   const {
     data: tasksData,
@@ -189,10 +184,8 @@ export const GanttPage = () => {
   }, [tasksData]);
 
   // Строим Gantt данные
-  const { ganttTasks, projectRowIds } = useMemo(() => {
-    if (!filteredData) {
-      return { ganttTasks: [], projectRowIds: [] as string[] };
-    }
+  const ganttTasks = useMemo(() => {
+    if (!filteredData) return [];
 
     const rows = buildGanttRows(
       filteredData.tasks,
@@ -200,20 +193,8 @@ export const GanttPage = () => {
       collapsedIds
     );
 
-    return {
-      ganttTasks: createGanttTaskList(rows),
-      projectRowIds: rows.map((row) => row.id),
-    };
+    return createGanttTaskList(rows);
   }, [filteredData, collapsedIds]);
-
-  const handleCollapseAll = () => {
-    if (projectRowIds.length === 0) return;
-    collapseAll(projectRowIds);
-  };
-
-  const handleExpandAll = () => {
-    expandAll();
-  };
 
   const handleLogout = () => {
     clearAuth();
@@ -270,23 +251,6 @@ export const GanttPage = () => {
             <Radio.Button value={ViewMode.Week}>Неделя</Radio.Button>
             <Radio.Button value={ViewMode.Month}>Месяц</Radio.Button>
           </Radio.Group>
-
-          <Space size={8}>
-            <Button
-              size="small"
-              onClick={handleCollapseAll}
-              disabled={projectRowIds.length === 0}
-            >
-              Свернуть все
-            </Button>
-            <Button
-              size="small"
-              onClick={handleExpandAll}
-              disabled={projectRowIds.length === 0}
-            >
-              Развернуть все
-            </Button>
-          </Space>
 
           <Button icon={<LogoutOutlined />} onClick={handleLogout}>
             Выход
