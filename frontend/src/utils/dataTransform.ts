@@ -1,6 +1,7 @@
 import type {
   GanttTask,
   Department,
+  User,
   GanttRow,
   BitrixProject
 } from '../types';
