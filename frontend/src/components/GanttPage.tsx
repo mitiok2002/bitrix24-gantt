@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Layout, Spin, Alert, Button, Space, Radio } from 'antd';
-import { LogoutOutlined } from '@ant-design/icons';
-import { ViewMode } from 'gantt-task-react';
-import { useAuthStore } from '../stores/authStore';
-import { useFilterStore } from '../stores/filterStore';
-import { useTasks, useUsers, useDepartments } from '../hooks/useBitrixData';
-import { buildGanttRows, createGanttTaskList } from '../utils/dataTransform';
+import { useMemo, useState } from "react";
+import { Layout, Spin, Alert, Button, Space, Radio } from "antd";
+import { LogoutOutlined } from "@ant-design/icons";
+import { ViewMode } from "gantt-task-react";
+import { useAuthStore } from "../stores/authStore";
+import { useFilterStore } from "../stores/filterStore";
+import { useTasks, useUsers, useDepartments } from "../hooks/useBitrixData";
+import { buildGanttRows, createGanttTaskList } from "../utils/dataTransform";
 import type { BitrixProject } from "../types";
-import { GanttChart } from './GanttChart';
-import { FilterPanel } from './FilterPanel';
+import { GanttChart } from "./GanttChart";
+import { FilterPanel } from "./FilterPanel";
 
 const { Sider, Content, Header } = Layout;
 
@@ -24,12 +24,24 @@ export const GanttPage = () => {
     searchQuery,
     statusFilter,
     showOnlyOverdue,
-    showOnlyCritical
+    showOnlyCritical,
   } = useFilterStore();
 
-  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useTasks();
-  const { data: users, isLoading: usersLoading, error: usersError } = useUsers();
-  const { data: departments, isLoading: deptsLoading, error: deptsError } = useDepartments();
+  const {
+    data: tasksData,
+    isLoading: tasksLoading,
+    error: tasksError,
+  } = useTasks();
+  const {
+    data: users,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useUsers();
+  const {
+    data: departments,
+    isLoading: deptsLoading,
+    error: deptsError,
+  } = useDepartments();
 
   const isLoading = tasksLoading || usersLoading || deptsLoading;
   const error = tasksError || usersError || deptsError;
@@ -40,14 +52,16 @@ export const GanttPage = () => {
 
     let filteredTasks = [...(tasksData.ganttTasks ?? [])];
 
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
     if (searchQuery) {
-      filteredTasks = filteredTasks.filter(task =>
+      filteredTasks = filteredTasks.filter((task) =>
         task.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (dateRange) {
-      filteredTasks = filteredTasks.filter(task => {
+      filteredTasks = filteredTasks.filter((task) => {
         const taskStart = task.start.getTime();
         const taskEnd = task.end.getTime();
         const rangeStart = dateRange[0].getTime();
@@ -62,52 +76,68 @@ export const GanttPage = () => {
     }
 
     if (statusFilter.length > 0) {
-      filteredTasks = filteredTasks.filter(task =>
+      filteredTasks = filteredTasks.filter((task) =>
         task.status ? statusFilter.includes(task.status) : false
       );
     }
 
+    if (selectedUsers.length > 0) {
+      const selectedUsersSet = new Set(selectedUsers);
+      filteredTasks = filteredTasks.filter((task) => {
+        const assigneeId = task.assigneeId ?? task.responsibleId;
+        return assigneeId ? selectedUsersSet.has(assigneeId) : false;
+      });
+    }
+
+    if (selectedDepartments.length > 0) {
+      const selectedDepartmentsSet = new Set(selectedDepartments);
+      filteredTasks = filteredTasks.filter((task) => {
+        const assigneeId = task.assigneeId ?? task.responsibleId;
+        if (!assigneeId) {
+          return false;
+        }
+        const assignee = userMap.get(assigneeId);
+        if (!assignee) {
+          return false;
+        }
+        return assignee.departmentIds.some((deptId) =>
+          selectedDepartmentsSet.has(deptId)
+        );
+      });
+    }
+
     if (selectedProjects.length > 0) {
-      filteredTasks = filteredTasks.filter(task => {
-        const projectKey = task.projectId ?? 'unassigned';
+      filteredTasks = filteredTasks.filter((task) => {
+        const projectKey = task.projectId ?? "unassigned";
         return selectedProjects.includes(projectKey);
       });
     }
 
     if (showOnlyOverdue) {
-      filteredTasks = filteredTasks.filter(task => task.isOverdue);
+      filteredTasks = filteredTasks.filter((task) => task.isOverdue);
     }
 
     if (showOnlyCritical) {
-      filteredTasks = filteredTasks.filter(task => task.isCritical);
+      filteredTasks = filteredTasks.filter((task) => task.isCritical);
     }
 
-    let filteredUsers = [...users];
-    if (selectedUsers.length > 0) {
-      filteredUsers = filteredUsers.filter(user =>
-        selectedUsers.includes(user.id)
-      );
-    }
+    const filteredUsers =
+      selectedDepartments.length > 0
+        ? users.filter((user) =>
+            user.departmentIds.some((deptId) =>
+              selectedDepartments.includes(deptId)
+            )
+          )
+        : users;
 
-    let filteredDepartments = [...departments];
-    if (selectedDepartments.length > 0) {
-      filteredDepartments = filteredDepartments.filter(dept =>
-        selectedDepartments.includes(dept.id)
-      );
-
-      filteredUsers = filteredUsers.filter(user =>
-        user.departmentIds.some((deptId: string) =>
-          selectedDepartments.includes(deptId)
-        )
-      );
-    }
+    const filteredDepartments = departments;
 
     const projectMap = new Map<string, BitrixProject>();
     (tasksData.projects ?? []).forEach((project) => {
       projectMap.set(project.id, project);
     });
 
-    filteredTasks.forEach((task) => {
+    (tasksData.ganttTasks ?? []).forEach((task) => {
       if (!task.projectId) {
         return;
       }
@@ -140,16 +170,16 @@ export const GanttPage = () => {
     selectedProjects,
     statusFilter,
     showOnlyOverdue,
-    showOnlyCritical
+    showOnlyCritical,
   ]);
 
   const summaryStats = useMemo(() => {
     const allTasks = tasksData?.ganttTasks ?? [];
     return {
       total: allTasks.length,
-      overdue: allTasks.filter(task => task.isOverdue).length,
-      completed: allTasks.filter(task => (task.progress ?? 0) >= 100).length,
-      critical: allTasks.filter(task => task.isCritical).length
+      overdue: allTasks.filter((task) => task.isOverdue).length,
+      completed: allTasks.filter((task) => (task.progress ?? 0) >= 100).length,
+      critical: allTasks.filter((task) => task.isCritical).length,
     };
   }, [tasksData]);
 
@@ -172,12 +202,14 @@ export const GanttPage = () => {
 
   if (isLoading) {
     return (
-      <div style={{ 
-        height: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <Spin size="large" tip="Загрузка данных..." />
       </div>
     );
@@ -185,7 +217,7 @@ export const GanttPage = () => {
 
   if (error) {
     return (
-      <div style={{ padding: '40px' }}>
+      <div style={{ padding: "40px" }}>
         <Alert
           type="error"
           message="Ошибка загрузки данных"
@@ -197,24 +229,29 @@ export const GanttPage = () => {
   }
 
   return (
-    <Layout style={{ height: '100vh' }}>
-      <Header style={{ 
-        background: '#fff', 
-        padding: '0 24px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
+    <Layout style={{ height: "100vh" }}>
+      <Header
+        style={{
+          background: "#fff",
+          padding: "0 24px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <h2 style={{ margin: 0 }}>Bitrix24 Gantt Diagram</h2>
-        
+
         <Space>
-          <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+          <Radio.Group
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+          >
             <Radio.Button value={ViewMode.Day}>День</Radio.Button>
             <Radio.Button value={ViewMode.Week}>Неделя</Radio.Button>
             <Radio.Button value={ViewMode.Month}>Месяц</Radio.Button>
           </Radio.Group>
-          
+
           <Button icon={<LogoutOutlined />} onClick={handleLogout}>
             Выход
           </Button>
@@ -222,12 +259,12 @@ export const GanttPage = () => {
       </Header>
 
       <Layout>
-        <Sider 
-          width={350} 
-          style={{ 
-            background: '#fff',
-            padding: '16px',
-            overflowY: 'auto'
+        <Sider
+          width={350}
+          style={{
+            background: "#fff",
+            padding: "16px",
+            overflowY: "auto",
           }}
         >
           {departments && users && tasksData && (
@@ -240,17 +277,21 @@ export const GanttPage = () => {
           )}
         </Sider>
 
-        <Content style={{ 
-          padding: '24px',
-          background: '#f0f2f5',
-          overflowY: 'auto'
-        }}>
-          <div style={{ 
-            background: '#fff', 
-            padding: '24px',
-            borderRadius: '8px',
-            minHeight: '100%'
-          }}>
+        <Content
+          style={{
+            padding: "24px",
+            background: "#f0f2f5",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "24px",
+              borderRadius: "8px",
+              minHeight: "100%",
+            }}
+          >
             <GanttChart tasks={ganttTasks} viewMode={viewMode} />
           </div>
         </Content>
@@ -258,4 +299,3 @@ export const GanttPage = () => {
     </Layout>
   );
 };
-
