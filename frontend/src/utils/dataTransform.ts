@@ -127,13 +127,20 @@ export const transformBitrixTasks = (
         `${String(title)}_${pickField(task, ['RESPONSIBLE_ID', 'responsibleId']) ?? 'unknown'}`;
 
       const parentId = pickField(task, ['PARENT_ID', 'parentId']);
-      const groupId = pickField(task, ['GROUP_ID', 'groupId']);
-      const projectId =
-        groupId !== undefined && groupId !== null
-          ? String(groupId)
-          : undefined;
-      let projectMeta =
-        projectId ? projectMap.get(projectId) : undefined;
+      const groupIdRaw = pickField(task, ['GROUP_ID', 'groupId']);
+      let projectId: string | undefined;
+      if (groupIdRaw !== undefined && groupIdRaw !== null) {
+        const normalizedGroup = String(groupIdRaw).trim();
+        if (
+          normalizedGroup !== '' &&
+          normalizedGroup !== '0' &&
+          normalizedGroup.toLowerCase() !== 'null' &&
+          normalizedGroup.toLowerCase() !== 'undefined'
+        ) {
+          projectId = normalizedGroup;
+        }
+      }
+      let projectMeta = projectId ? projectMap.get(projectId) : undefined;
       const rawGroup =
         task.GROUP ??
         task.group ??
