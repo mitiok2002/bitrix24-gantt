@@ -98,7 +98,7 @@ export interface User {
 }
 
 export interface GanttRow {
-  type: 'project' | 'task-group' | 'assignee';
+  type: 'project' | 'task-group' | 'task';
   id: string;
   name: string;
   tasks: GanttTask[];

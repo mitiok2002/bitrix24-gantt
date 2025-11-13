@@ -4,6 +4,7 @@ import 'gantt-task-react/dist/index.css';
 import type { GanttTask } from '../types';
 import { useFilterStore } from '../stores/filterStore';
 import dayjs from 'dayjs';
+import { CustomTaskListTable } from './CustomTaskListTable';
 
 interface GanttChartProps {
   tasks: GanttTask[];
@@ -135,6 +136,7 @@ export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
         fontFamily="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
         todayColor="rgba(255, 193, 7, 0.3)"
         TooltipContent={CustomTooltip}
+        TaskListTable={CustomTaskListTable}
       />
     </div>
   );

@@ -171,7 +171,7 @@ export const transformBitrixTasks = (
           progressColor: '#fff',
           progressSelectedColor: '#fff'
         },
-        project: assigneeId, // Текущая группировка по ответственному
+        project: projectId ?? undefined,
         parentId: parentId !== undefined ? String(parentId) : null,
         projectId: projectId ?? null,
         projectName: projectMeta?.name,
@@ -195,9 +195,6 @@ export const buildGanttRows = (
   if (tasks.length === 0) {
     return rows;
   }
-
-  const userMap = new Map<string, User>();
-  users.forEach(user => userMap.set(user.id, user));
 
   const taskMap = new Map<string, GanttTask>();
   tasks.forEach(task => taskMap.set(task.id, task));
@@ -226,16 +223,6 @@ export const buildGanttRows = (
     buckets.get(key)!.push(task);
   });
 
-  const gatherDescendants = (taskId: string): GanttTask[] => {
-    const direct = childrenByParent.get(taskId) ?? [];
-    const result: GanttTask[] = [];
-    direct.forEach(child => {
-      result.push(child);
-      result.push(...gatherDescendants(child.id));
-    });
-    return result;
-  };
-
   buckets.forEach((projectTasks, projectId) => {
     if (projectTasks.length === 0) {
       return;
@@ -263,69 +250,48 @@ export const buildGanttRows = (
       return (parent.projectId ?? null) !== (task.projectId ?? null);
     });
 
-    roots.forEach(rootTask => {
-      const taskRowId = `task_${rootTask.id}`;
-      const tasksInGroup = [
-        rootTask,
-        ...gatherDescendants(rootTask.id).filter(
-          descendant =>
-            (descendant.projectId ?? null) === (rootTask.projectId ?? null)
-        )
-      ];
+    const buildTaskRow = (
+      task: GanttTask,
+      level: number,
+      parentRowId: string
+    ): GanttRow => {
+      const taskRowId = `task_${task.id}`;
+      const childTasks =
+        childrenByParent
+          .get(task.id)
+          ?.filter(
+            child =>
+              (child.projectId ?? null) === (task.projectId ?? null)
+          ) ?? [];
 
-      const taskRow: GanttRow = {
-        type: 'task-group',
+      const sortedChildren = childTasks.sort(
+        (a, b) => a.start.getTime() - b.start.getTime()
+      );
+
+      const childRows = sortedChildren.map(child =>
+        buildTaskRow(child, level + 1, taskRowId)
+      );
+
+      const rowType: GanttRow['type'] =
+        childRows.length > 0 ? 'task-group' : 'task';
+
+      return {
+        type: rowType,
         id: taskRowId,
-        name: rootTask.name,
-        tasks: [rootTask],
-        children: [],
+        name: task.name,
+        tasks: [task],
+        children: childRows,
         collapsed: collapsedIds.has(taskRowId),
-        level: 1,
-        parentId: projectRow.id
+        level,
+        parentId: parentRowId
       };
+    };
 
-      const assigneeBuckets = new Map<string, GanttTask[]>();
-      tasksInGroup.forEach(task => {
-        const assigneeKey =
-          task.assigneeId ?? task.responsibleId ?? 'unassigned';
-        if (!assigneeBuckets.has(assigneeKey)) {
-          assigneeBuckets.set(assigneeKey, []);
-        }
-        assigneeBuckets.get(assigneeKey)!.push(task);
-      });
+    const rootRows = roots
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+      .map(rootTask => buildTaskRow(rootTask, 1, projectRow.id));
 
-      assigneeBuckets.forEach((assignedTasks, assigneeKey) => {
-        const user =
-          assigneeKey !== 'unassigned' ? userMap.get(assigneeKey) : undefined;
-        const label =
-          assigneeKey === 'unassigned'
-            ? 'Не назначено'
-            : `${user?.lastName ?? ''} ${user?.name ?? ''}`.trim() ||
-              `Пользователь ${assigneeKey}`;
-        const assigneeRowId = `assignee_${rootTask.id}_${assigneeKey}`;
-        const assigneeRow: GanttRow = {
-          type: 'assignee',
-          id: assigneeRowId,
-          name: label,
-          tasks: assignedTasks,
-          level: 2,
-          parentId: taskRow.id,
-          collapsed: collapsedIds.has(assigneeRowId)
-        };
-
-        if (!taskRow.children) {
-          taskRow.children = [];
-        }
-        taskRow.children.push(assigneeRow);
-      });
-
-      if (!taskRow.children) {
-        taskRow.children = [];
-      }
-
-      taskRow.children.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-      projectRow.children!.push(taskRow);
-    });
+    projectRow.children = rootRows;
 
     if (projectRow.children && projectRow.children.length > 0) {
       projectRow.children.sort((a, b) => {
@@ -353,7 +319,33 @@ export const createGanttTaskList = (rows: GanttRow[]): GanttTask[] => {
 
   const traverse = (row: GanttRow, parentId?: string) => {
     const allTasks = getAllTasksFromRow(row);
-    if (allTasks.length > 0) {
+
+    if (row.type === 'task') {
+      row.tasks.forEach(task => {
+        const baseBackground =
+          task.isOverdue && task.type === 'task'
+            ? '#f44336'
+            : task.styles?.backgroundColor ?? '#4caf50';
+
+        tasks.push({
+          ...task,
+          project: parentId,
+          styles: {
+            ...task.styles,
+            backgroundColor: task.isOverdue ? '#f44336' : baseBackground,
+            backgroundSelectedColor: task.isOverdue
+              ? '#e53935'
+              : task.styles?.backgroundSelectedColor ?? baseBackground,
+            progressColor: task.isCritical
+              ? '#ffeb3b'
+              : task.styles?.progressColor ?? '#fff',
+            progressSelectedColor: task.isCritical
+              ? '#fdd835'
+              : task.styles?.progressSelectedColor ?? '#fff'
+          }
+        });
+      });
+    } else if (allTasks.length > 0) {
       const minStart = new Date(
         Math.min(...allTasks.map(t => t.start.getTime()))
       );
@@ -364,6 +356,7 @@ export const createGanttTaskList = (rows: GanttRow[]): GanttTask[] => {
         allTasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) /
         allTasks.length;
 
+      const isProjectRow = row.type === 'project';
       const summaryTask: GanttTask = {
         id: row.id,
         name: row.name,
@@ -374,18 +367,10 @@ export const createGanttTaskList = (rows: GanttRow[]): GanttTask[] => {
         hideChildren: row.collapsed,
         project: parentId,
         styles: {
-          backgroundColor:
-            row.type === 'project'
-              ? '#546e7a'
-              : row.type === 'task-group'
-              ? '#78909c'
-              : '#90a4ae',
-          backgroundSelectedColor:
-            row.type === 'project'
-              ? '#37474f'
-              : row.type === 'task-group'
-              ? '#607d8b'
-              : '#78909c'
+          backgroundColor: isProjectRow ? '#1f6feb' : '#6d8cff',
+          backgroundSelectedColor: isProjectRow ? '#174ea6' : '#5a76d9',
+          progressColor: '#ffffff',
+          progressSelectedColor: '#ffffff'
         },
         raw: { type: row.type }
       };
@@ -393,32 +378,8 @@ export const createGanttTaskList = (rows: GanttRow[]): GanttTask[] => {
       tasks.push(summaryTask);
     }
 
-    if (row.type === 'assignee') {
-      row.tasks.forEach(task => {
-        const overdueBackground = task.isOverdue
-          ? '#f44336'
-          : task.styles?.backgroundColor;
-        tasks.push({
-          ...task,
-          project: row.id,
-          styles: {
-            ...task.styles,
-            backgroundColor: overdueBackground,
-            backgroundSelectedColor: task.isOverdue
-              ? '#e53935'
-              : task.styles?.backgroundSelectedColor ?? overdueBackground,
-            progressColor: task.isCritical
-              ? '#ffeb3b'
-              : task.styles?.progressColor ?? '#fff',
-            progressSelectedColor: task.isCritical
-              ? '#fdd835'
-              : task.styles?.progressSelectedColor ?? '#fff'
-          }
-        });
-      });
-    }
-
-    row.children?.forEach(child => traverse(child, row.id));
+    const nextParentId = row.type === 'task' ? parentId : row.id;
+    row.children?.forEach(child => traverse(child, nextParentId));
   };
 
   rows.forEach(row => traverse(row));
