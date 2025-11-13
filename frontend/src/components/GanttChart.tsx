@@ -61,9 +61,6 @@ const statusMap: Record<string, string> = {
 const CustomTooltip = ({ task }: { task: GanttTask }) => {
   const rawTask = task.raw as Record<string, any> | undefined;
   const isRealTask = task.type === 'task';
-  const rawId =
-    rawTask?.ID ?? rawTask?.id ?? rawTask?.taskId ?? rawTask?.ID?.toString();
-  const taskId = String(rawId ?? task.id);
   const rawResponsible =
     rawTask?.responsible?.name || rawTask?.responsible?.NAME;
   const responsibleName =
@@ -71,56 +68,36 @@ const CustomTooltip = ({ task }: { task: GanttTask }) => {
     (task.assigneeId ? `Ответственный ID: ${task.assigneeId}` : 'Не назначено');
 
   return (
-    <div style={{ padding: 8 }}>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-        {isRealTask ? `#${taskId} · ${task.name}` : task.name}
-      </div>
-      {isRealTask && (
-        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
-          Название: {task.name}
-        </div>
-      )}
-      {isRealTask && (
-        <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
-          ID: {taskId}
-        </div>
-      )}
-      <div style={{ fontSize: 12, color: '#555' }}>
+    <div
+      style={{
+        padding: 12,
+        background: '#fff',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        borderRadius: 6,
+        minWidth: 220
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>{task.name}</div>
+      <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4 }}>
         Период: {dayjs(task.start).format('DD.MM.YYYY')} —{' '}
         {dayjs(task.end).format('DD.MM.YYYY')}
       </div>
-      {task.projectName && (
-        <div style={{ fontSize: 12, color: '#555' }}>
+      <div style={{ fontSize: 12, color: '#4b5563', marginBottom: isRealTask ? 4 : 0 }}>
+        Ответственный: {responsibleName}
+      </div>
+      {isRealTask && task.projectName && (
+        <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4 }}>
           Проект: {task.projectName}
         </div>
       )}
-      <div style={{ fontSize: 12, color: '#555' }}>
-        Ответственный: {responsibleName}
-      </div>
-      {task.status && (
-        <div style={{ fontSize: 12, color: '#555' }}>
+      {isRealTask && task.status && (
+        <div style={{ fontSize: 12, color: '#4b5563' }}>
           Статус: {statusMap[task.status] ?? task.status}
         </div>
       )}
-      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {task.isOverdue && <span style={tagStyle('#f44336')}>Просрочено</span>}
-        {task.isCritical && (
-          <span style={tagStyle('#ffa000')}>Критический путь</span>
-        )}
-      </div>
     </div>
   );
 };
-
-const tagStyle = (background: string): React.CSSProperties => ({
-  background,
-  color: '#fff',
-  borderRadius: 4,
-  padding: '2px 6px',
-  fontSize: 10,
-  textTransform: 'uppercase',
-  letterSpacing: 0.5
-});
 
 export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
   const toggleCollapsed = useFilterStore((state) => state.toggleCollapsed);
