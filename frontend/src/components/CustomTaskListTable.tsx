@@ -1,6 +1,22 @@
 import { useMemo } from "react";
 import type { Task } from "gantt-task-react";
 
+export const TASK_LIST_COLUMN_WIDTHS = {
+  name: 260,
+  start: 180,
+  end: 180,
+  responsible: 220,
+  status: 160,
+} as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  "2": "Новая",
+  "3": "В работе",
+  "4": "Ждёт контроля",
+  "5": "Завершена",
+  "7": "Отложена",
+};
+
 type CustomTaskListTableProps = {
   rowHeight: number;
   rowWidth: string;
@@ -126,6 +142,22 @@ export const CustomTaskListTable = ({
             ? "▶"
             : "";
         const showExpander = Boolean(expanderSymbol);
+        const startWidth = `${TASK_LIST_COLUMN_WIDTHS.start}px`;
+        const endWidth = `${TASK_LIST_COLUMN_WIDTHS.end}px`;
+        const responsibleWidth = `${TASK_LIST_COLUMN_WIDTHS.responsible}px`;
+        const statusWidth = `${TASK_LIST_COLUMN_WIDTHS.status}px`;
+        const nameWidth = `${TASK_LIST_COLUMN_WIDTHS.name}px`;
+        const rawTask = (task as ExtendedTask).raw;
+        const responsibleLabel =
+          rawTask?.responsible?.name ??
+          rawTask?.responsible?.NAME ??
+          (task as any).assigneeId ??
+          (task as any).responsibleId ??
+          "—";
+        const statusLabel =
+          task.type === "task" && (task as any).status
+            ? STATUS_LABELS[(task as any).status] ?? (task as any).status
+            : "—";
 
         return (
           <div
@@ -141,8 +173,8 @@ export const CustomTaskListTable = ({
             <div
               title={task.name}
               style={{
-                minWidth: rowWidth,
-                maxWidth: rowWidth,
+                minWidth: nameWidth,
+                maxWidth: nameWidth,
                 paddingLeft: 12 + indent * 16,
                 display: "flex",
                 alignItems: "center",
@@ -172,14 +204,14 @@ export const CustomTaskListTable = ({
               )}
               <span>
                 {task.name}
-                {task.type === 'task' && (task as any).isCritical ? ' 🔥' : ''}
+                {task.type === "task" && (task as any).isCritical ? " 🔥" : ""}
               </span>
             </div>
 
             <div
               style={{
-                minWidth: rowWidth,
-                maxWidth: rowWidth,
+                minWidth: startWidth,
+                maxWidth: startWidth,
                 color: "#4d5b7c",
                 fontSize,
               }}
@@ -190,14 +222,39 @@ export const CustomTaskListTable = ({
 
             <div
               style={{
-                minWidth: rowWidth,
-                maxWidth: rowWidth,
+                minWidth: endWidth,
+                maxWidth: endWidth,
                 color: "#4d5b7c",
                 fontSize,
               }}
             >
               &nbsp;
               {toLocaleDateString(task.end, dateTimeOptions)}
+            </div>
+
+            <div
+              style={{
+                minWidth: responsibleWidth,
+                maxWidth: responsibleWidth,
+                color: "#4d5b7c",
+                fontSize,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              &nbsp;{responsibleLabel}
+            </div>
+
+            <div
+              style={{
+                minWidth: statusWidth,
+                maxWidth: statusWidth,
+                color: "#4d5b7c",
+                fontSize,
+              }}
+            >
+              &nbsp;{statusLabel}
             </div>
           </div>
         );

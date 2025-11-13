@@ -4,7 +4,12 @@ import 'gantt-task-react/dist/index.css';
 import type { GanttTask } from '../types';
 import { useFilterStore } from '../stores/filterStore';
 import dayjs from 'dayjs';
-import { CustomTaskListTable } from './CustomTaskListTable';
+import { CustomTaskListTable, TASK_LIST_COLUMN_WIDTHS } from './CustomTaskListTable';
+
+const TASK_LIST_TOTAL_WIDTH = Object.values(TASK_LIST_COLUMN_WIDTHS).reduce(
+  (sum, width) => sum + width,
+  0
+);
 
 const CustomTaskListHeader = ({
   headerHeight,
@@ -17,11 +22,19 @@ const CustomTaskListHeader = ({
   fontFamily: string;
   fontSize: string;
 }) => {
+  const columnTemplate = [
+    `${TASK_LIST_COLUMN_WIDTHS.name}px`,
+    `${TASK_LIST_COLUMN_WIDTHS.start}px`,
+    `${TASK_LIST_COLUMN_WIDTHS.end}px`,
+    `${TASK_LIST_COLUMN_WIDTHS.responsible}px`,
+    `${TASK_LIST_COLUMN_WIDTHS.status}px`
+  ].join(' ');
+
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: `${rowWidth} ${rowWidth} ${rowWidth}`,
+        gridTemplateColumns: columnTemplate,
         borderBottom: '1px solid #e0e0e0',
         borderLeft: '1px solid #e0e0e0',
         borderRight: '1px solid #e0e0e0',
@@ -40,6 +53,12 @@ const CustomTaskListHeader = ({
       </div>
       <div style={{ borderLeft: '1px solid #e0e0e0', paddingLeft: 16 }}>
         Окончание
+      </div>
+      <div style={{ borderLeft: '1px solid #e0e0e0', paddingLeft: 16 }}>
+        Ответственный
+      </div>
+      <div style={{ borderLeft: '1px solid #e0e0e0', paddingLeft: 16 }}>
+        Статус
       </div>
     </div>
   );
@@ -174,7 +193,7 @@ export const GanttChart = ({ tasks, viewMode }: GanttChartProps) => {
         viewMode={viewMode}
         locale="ru"
         columnWidth={columnWidth}
-        listCellWidth="260px"
+        listCellWidth={`${TASK_LIST_TOTAL_WIDTH}px`}
         onExpanderClick={handleExpanderClick}
         ganttHeight={ganttHeight}
         barBackgroundColor="#4caf50"
