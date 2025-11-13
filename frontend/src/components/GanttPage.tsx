@@ -95,7 +95,9 @@ export const GanttPage = () => {
       );
 
       filteredUsers = filteredUsers.filter(user =>
-        user.departmentIds.some(deptId => selectedDepartments.includes(deptId))
+        user.departmentIds.some((deptId: string) =>
+          selectedDepartments.includes(deptId)
+        )
       );
     }
 
@@ -136,7 +138,6 @@ export const GanttPage = () => {
     const rows = buildGanttRows(
       filteredData.tasks,
       filteredData.projects,
-      filteredData.users,
       collapsedIds
     );
 

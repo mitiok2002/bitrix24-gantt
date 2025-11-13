@@ -3,11 +3,13 @@ import type { Task } from "gantt-task-react";
 
 type CustomTaskListTableProps = {
   rowHeight: number;
-  rowWidth: number;
-  tasks: Task[];
+  rowWidth: string;
   fontFamily: string;
   fontSize: string;
   locale: string;
+  tasks: Task[];
+  selectedTaskId: string;
+  setSelectedTask: (taskId: string) => void;
   onExpanderClick: (task: Task) => void;
 };
 
@@ -33,10 +35,14 @@ const dateTimeOptions: Intl.DateTimeFormatOptions = {
   day: "numeric",
 };
 
+type ExtendedTask = Task & {
+  raw?: { type?: string };
+};
+
 const getRowTheme = (task: Task) => {
+  const extended = task as ExtendedTask;
   const rawType =
-    (task.raw as { type?: string } | undefined)?.type ??
-    (task.type === "project" ? "project" : "task");
+    extended.raw?.type ?? (task.type === "project" ? "project" : "task");
 
   switch (rawType) {
     case "project":
@@ -83,8 +89,13 @@ export const CustomTaskListTable = ({
   fontFamily,
   fontSize,
   locale,
+  selectedTaskId,
+  setSelectedTask,
   onExpanderClick,
 }: CustomTaskListTableProps) => {
+  void selectedTaskId;
+  void setSelectedTask;
+
   const toLocaleDateString = useMemo(
     () => toLocaleDateStringFactory(locale),
     [locale]

@@ -1,7 +1,6 @@
 import type {
   GanttTask,
   Department,
-  User,
   GanttRow,
   BitrixProject
 } from '../types';
@@ -188,7 +187,6 @@ export const transformBitrixTasks = (
 export const buildGanttRows = (
   tasks: GanttTask[],
   projects: BitrixProject[],
-  users: User[],
   collapsedIds: Set<string> = new Set()
 ): GanttRow[] => {
   const rows: GanttRow[] = [];
