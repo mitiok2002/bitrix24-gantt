@@ -77,14 +77,33 @@ const CustomTooltip = ({ task }: { task: GanttTask }) => {
         minWidth: 220
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>{task.name}</div>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>
+        {task.name} {task.isCritical ? '🔥' : ''}
+      </div>
       <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4 }}>
         Период: {dayjs(task.start).format('DD.MM.YYYY')} —{' '}
         {dayjs(task.end).format('DD.MM.YYYY')}
       </div>
-      <div style={{ fontSize: 12, color: '#4b5563', marginBottom: isRealTask ? 4 : 0 }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: '#4b5563',
+          marginBottom: isRealTask || task.isOverdue ? 4 : 0
+        }}
+      >
         Ответственный: {responsibleName}
       </div>
+      {task.isOverdue && (
+        <div
+          style={{
+            fontSize: 12,
+            color: '#d32f2f',
+            marginBottom: isRealTask ? 4 : 0
+          }}
+        >
+          Просрочено
+        </div>
+      )}
       {isRealTask && task.projectName && (
         <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 4 }}>
           Проект: {task.projectName}

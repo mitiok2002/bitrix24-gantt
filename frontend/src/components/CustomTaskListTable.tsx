@@ -170,7 +170,10 @@ export const CustomTaskListTable = ({
               ) : (
                 <span style={{ width: 16 }} />
               )}
-              <span>{task.name}</span>
+              <span>
+                {task.name}
+                {task.type === 'task' && (task as any).isCritical ? ' 🔥' : ''}
+              </span>
             </div>
 
             <div
